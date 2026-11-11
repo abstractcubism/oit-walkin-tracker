@@ -17,7 +17,7 @@ Node.js 22.13+ and Express, with SQLite through Node's built-in `node:sqlite` (o
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000, test sign-in by email, admin@oit.rutgers.edu is admin
+npm run dev        # then open http://localhost:3000 (works in PowerShell, macOS and Linux)
 npm test
 ```
 
