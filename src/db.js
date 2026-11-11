@@ -65,11 +65,18 @@ CREATE INDEX IF NOT EXISTS walkins_status ON walkins(status);
 CREATE INDEX IF NOT EXISTS walkins_created ON walkins(created_at);
 `);
 
-// First run: seed a few sensible defaults. Admins can change them on the Admin page.
+// OIT walk-in locations in New Brunswick, as [name, campus].
+const LOCATIONS = [
+  ['Help Desk', 'Busch'], ['ARC', 'Busch'],
+  ['Academic Building', 'College Ave'], ['Alexander Library', 'College Ave'],
+  ['Loree', 'Cook/Douglass'],
+  ['Tillett', 'Livingston'],
+];
 try { db.exec('ALTER TABLE locations ADD COLUMN campus TEXT'); } catch { /* already there */ }
+// First run: seed sensible defaults. Admins can change them on the Admin page.
 if (db.prepare('SELECT COUNT(*) AS n FROM locations').get().n === 0) {
   const ins = db.prepare('INSERT INTO locations (name, campus) VALUES (?, ?)');
-  [['Help Desk', 'Busch'], ['ARC', 'Busch'], ['Academic Building', 'College Avenue']].forEach(([n, c]) => ins.run(n, c));
+  LOCATIONS.forEach(([n, c]) => ins.run(n, c));
 }
 if (db.prepare('SELECT COUNT(*) AS n FROM issue_types').get().n === 0) {
   const ins = db.prepare('INSERT INTO issue_types (label, sort) VALUES (?, ?)');
@@ -88,8 +95,15 @@ if (!db.prepare("SELECT 1 FROM meta WHERE key = 'drop_email_default'").get()) {
 }
 if (!db.prepare("SELECT 1 FROM meta WHERE key = 'location_campus'").get()) {
   const set = db.prepare('UPDATE locations SET campus = ? WHERE name = ? AND campus IS NULL');
-  set.run('Busch', 'Help Desk'); set.run('Busch', 'ARC'); set.run('College Avenue', 'Academic Building');
+  set.run('Busch', 'Help Desk'); set.run('Busch', 'ARC'); set.run('College Ave', 'Academic Building');
   db.prepare("INSERT INTO meta (key, value) VALUES ('location_campus', '1')").run();
+}
+// Older databases: add the full location list and use the short "College Ave" campus name.
+if (!db.prepare("SELECT 1 FROM meta WHERE key = 'locations_v2'").get()) {
+  db.prepare("UPDATE locations SET campus = 'College Ave' WHERE campus = 'College Avenue'").run();
+  const add = db.prepare('INSERT INTO locations (name, campus) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM locations WHERE lower(name) = lower(?))');
+  LOCATIONS.forEach(([n, c]) => add.run(n, c, n));
+  db.prepare("INSERT INTO meta (key, value) VALUES ('locations_v2', '1')").run();
 }
 if (!db.prepare("SELECT 1 FROM meta WHERE key = 'wifi_options'").get()) {
   db.prepare("UPDATE issue_types SET options = 'eduroam,RUatHome' WHERE label = 'Wi-Fi' AND options IS NULL").run();
