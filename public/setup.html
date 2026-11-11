@@ -3,58 +3,88 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Set up iPad · OIT Walk-ins</title>
+<title>Start · OIT Walk-ins</title>
 <link rel="stylesheet" href="/app.css">
 <style>
-  .wrap { max-width: 640px; width: 100%; }
-  .eyebrow { font-size: .8rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
-  .wrap h1 { font-size: 2rem; margin: 6px 0 10px; }
-  .locs { margin: 24px 0; border-top: 2px solid var(--ink); }
-  .locs button { width: 100%; justify-content: space-between; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: none;
-    padding: 22px 4px; font-size: 1.35rem; font-weight: 600; }
-  .locs button:hover, .locs button:active { background: #ebe6de; }
-  .locs button .icon { width: 24px; height: 24px; color: var(--muted); }
+  body { min-height: 100vh; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 40px) 48px; }
+  .top { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 14px; border-bottom: 2px solid var(--ink); margin-bottom: 26px; }
+  .word { font-weight: 700; font-size: 1.05rem; }
+  .word span { color: var(--scarlet); }
+  .me { color: var(--muted); font-size: .9rem; }
+  .me button { border: 0; background: none; padding: 0 0 0 10px; color: var(--muted); text-decoration: underline; font-weight: 500; }
+
+  .big { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 28px 30px; border-radius: 4px; border: 0;
+    font-size: 1.5rem; font-weight: 600; text-decoration: none; }
+  .big .icon { width: 30px; height: 30px; }
+  .queue { background: var(--ink); color: #fff; }
+  .queue:hover { background: #000; }
+  .queue small { display: block; font-size: .9rem; font-weight: 400; opacity: .7; margin-top: 4px; }
+
+  .linked { margin-top: 18px; border: 1px solid var(--line); background: #fff; padding: 18px 22px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .linked p { margin: 0 auto 0 0; font-size: 1.05rem; }
+
+  .label { font-size: .8rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin: 38px 0 4px; }
+  .campus { margin-top: 22px; }
+  .campus h2 { font-size: 1rem; font-weight: 600; color: var(--ink); margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .loc { min-height: 120px; border: 2px solid var(--ink); background: #fff; border-radius: 4px; font-size: 1.35rem; font-weight: 600;
+    display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; padding: 18px 20px; text-align: left; }
+  .loc .icon { width: 22px; height: 22px; color: var(--muted); align-self: flex-end; }
+  .loc:hover, .loc:active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .loc:hover .icon, .loc:active .icon { color: #fff; }
+  .loc.current { border-color: var(--scarlet); }
 </style>
 </head>
-<body class="auth-bg">
-<div class="center">
-  <div class="wrap">
-    <div class="eyebrow">Staff · iPad setup</div>
-    <h1>Which location is this iPad at?</h1>
-    <p id="current" class="muted"></p>
-    <p class="muted">Tap one and the iPad switches to the check-in form. You'll be signed out on it so walk-ins can't see your account.</p>
-    <div class="locs" id="locs"></div>
-    <p class="error" id="err" role="alert"></p>
-    <div class="row">
-      <button id="unlink" class="hidden">Unlink this iPad</button>
-      <a href="/dashboard" class="small">Go to the queue instead</a>
-    </div>
-    <p class="small muted">Tip: after setup, turn on Guided Access (Settings › Accessibility) so the iPad stays on the form.</p>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="word"><span>Rutgers</span> OIT</div>
+    <div class="me"><span id="who"></span><button id="out">Sign out</button></div>
   </div>
+
+  <a class="big queue" href="/dashboard"><span>Go to the queue<small>See and claim walk-ins</small></span><span id="qIcon"></span></a>
+  <div class="linked hidden" id="linked">
+    <p id="linkedText"></p>
+    <a class="btn primary" href="/kiosk">Back to check-in</a>
+    <button id="unlink">Unlink this iPad</button>
+  </div>
+
+  <div class="label">Or set up this iPad for check-in</div>
+  <div id="campuses"></div>
+  <p class="error" id="err" role="alert"></p>
 </div>
 <script src="/common.js"></script>
 <script src="/icons.js"></script>
 <script>
 (async () => {
-  const err = document.getElementById('err');
+  const $ = (id) => document.getElementById(id);
+  $('qIcon').replaceWith(icon('arrow-right'));
   const me = await api('/api/me');
+  $('who').textContent = me.name || me.email;
+  $('out').onclick = async () => { await api('/api/auth/logout', {}); location.href = '/login'; };
+
   if (me.device) {
-    document.getElementById('current').textContent = `This iPad is currently linked to ${me.device.location}. Picking a location below replaces that.`;
-    const u = document.getElementById('unlink');
-    u.classList.remove('hidden');
-    u.onclick = async () => {
-      if (!confirm('Unlink this iPad? The walk-in form will stop working here until it is set up again.')) return;
+    $('linked').classList.remove('hidden');
+    $('linkedText').textContent = `This iPad is checking in walk-ins at ${me.device.location}.`;
+    $('unlink').onclick = async () => {
+      if (!confirm('Unlink this iPad? Check-in stops working here until it is set up again.')) return;
       await api('/api/kiosk/unlink', {});
-      await api('/api/auth/logout', {});
-      location.href = '/login';
+      location.reload();
     };
   }
+
   const locs = await api('/api/locations');
-  document.getElementById('locs').append(...locs.map((l) => el('button', {
-    onclick: async () => {
-      try { await api('/api/kiosk/setup', { location_id: l.id }); location.href = '/kiosk'; } catch (e) { err.textContent = e.message; }
-    },
-  }, l.name, icon('arrow-right'))));
+  const byCampus = {};
+  locs.forEach((l) => (byCampus[l.campus] = byCampus[l.campus] || []).push(l));
+  $('campuses').replaceChildren(...Object.entries(byCampus).map(([campus, list]) => el('section', { class: 'campus' },
+    el('h2', {}, campus),
+    el('div', { class: 'grid' }, list.map((l) => el('button', {
+      class: 'loc' + (me.device && me.device.location === l.name ? ' current' : ''),
+      onclick: async () => {
+        try { await api('/api/kiosk/setup', { location_id: l.id }); location.href = '/kiosk'; } catch (e) { $('err').textContent = e.message; }
+      },
+    }, l.name, icon('arrow-right')))))));
 })();
 </script>
 </body>

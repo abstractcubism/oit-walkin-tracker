@@ -66,9 +66,10 @@ CREATE INDEX IF NOT EXISTS walkins_created ON walkins(created_at);
 `);
 
 // First run: seed a few sensible defaults. Admins can change them on the Admin page.
+try { db.exec('ALTER TABLE locations ADD COLUMN campus TEXT'); } catch { /* already there */ }
 if (db.prepare('SELECT COUNT(*) AS n FROM locations').get().n === 0) {
-  const ins = db.prepare('INSERT INTO locations (name) VALUES (?)');
-  ['Help Desk', 'ARC', 'Academic Building'].forEach((n) => ins.run(n));
+  const ins = db.prepare('INSERT INTO locations (name, campus) VALUES (?, ?)');
+  [['Help Desk', 'Busch'], ['ARC', 'Busch'], ['Academic Building', 'College Avenue']].forEach(([n, c]) => ins.run(n, c));
 }
 if (db.prepare('SELECT COUNT(*) AS n FROM issue_types').get().n === 0) {
   const ins = db.prepare('INSERT INTO issue_types (label, sort) VALUES (?, ?)');
@@ -84,6 +85,11 @@ db.exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)');
 if (!db.prepare("SELECT 1 FROM meta WHERE key = 'drop_email_default'").get()) {
   db.prepare("UPDATE issue_types SET active = 0 WHERE label = 'Email' AND sort = 40").run();
   db.prepare("INSERT INTO meta (key, value) VALUES ('drop_email_default', '1')").run();
+}
+if (!db.prepare("SELECT 1 FROM meta WHERE key = 'location_campus'").get()) {
+  const set = db.prepare('UPDATE locations SET campus = ? WHERE name = ? AND campus IS NULL');
+  set.run('Busch', 'Help Desk'); set.run('Busch', 'ARC'); set.run('College Avenue', 'Academic Building');
+  db.prepare("INSERT INTO meta (key, value) VALUES ('location_campus', '1')").run();
 }
 if (!db.prepare("SELECT 1 FROM meta WHERE key = 'wifi_options'").get()) {
   db.prepare("UPDATE issue_types SET options = 'eduroam,RUatHome' WHERE label = 'Wi-Fi' AND options IS NULL").run();

@@ -40,6 +40,9 @@ const config = {
   // Require a ServiceNow ticket number before a walk-in can be marked resolved.
   requireTicket: process.env.REQUIRE_TICKET !== 'false',
 
+  // ServiceNow address used to turn ticket numbers into links (Rutgers' IT Help portal runs on ServiceNow).
+  servicenowUrl: (process.env.SERVICENOW_URL || 'https://ithelp.rutgers.edu').replace(/\/$/, ''),
+
   // Slack incoming webhook. Leave empty to turn Slack posting off.
   slackWebhookUrl: process.env.SLACK_WEBHOOK_URL || '',
 };

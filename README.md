@@ -33,6 +33,7 @@ Copy `.env.example` to `.env` and fill it in. Every setting is explained there. 
 | `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_TENANT_ID` | Turns on Microsoft sign-in (@oit.rutgers.edu). Staff-only accounts, so they're let in automatically unless `MS_AUTO_ALLOW=false`. |
 | `RETENTION_DAYS` | NetID, name, email and description are erased from closed walk-ins after this many days (default 90). Counts and ticket numbers are kept. |
 | `REQUIRE_TICKET` | A ticket number is required before resolving (default true) |
+| `SERVICENOW_URL` | ServiceNow address used to turn ticket numbers into links (default `https://ithelp.rutgers.edu`) |
 | `SLACK_WEBHOOK_URL` | Turns on Slack posting |
 
 You can turn on Google, Microsoft or both. Each one appears on the sign-in page once its keys are set.
@@ -96,7 +97,7 @@ All three requests are small, and each is independent of the others.
 1. Open `BASE_URL/setup` in Safari and sign in.
 2. Tap the location. The iPad switches to the check-in form and signs you out.
 3. Turn on **Guided Access** (Settings › Accessibility › Guided Access) and start it on the form, so walk-ins can't leave the page.
-4. To change the location or unlink, tap **Staff** in the corner (this needs a sign-in), or unlink the iPad from the Admin page.
+4. To get back to the staff screen, **press and hold "Rutgers OIT" in the top-left corner for 3 seconds**. That opens the consultant sign-in, which has a "Back to check-in" button and goes back to the form on its own after a minute. Nothing changes on the iPad until a consultant signs in. You can also unlink an iPad from the Admin page.
 
 The form clears itself 6 seconds after each check-in, and any half-filled form is cleared after 90 seconds of no activity.
 

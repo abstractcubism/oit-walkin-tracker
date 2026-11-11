@@ -33,7 +33,7 @@ const bad = (res, msg, code = 400) => res.status(code).json({ error: msg });
 const clean = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
 // ---------- Pages ----------
-app.get('/', (req, res) => res.redirect(req.device && !req.user ? '/kiosk' : '/dashboard'));
+app.get('/', (req, res) => res.redirect(req.device && !req.user ? '/kiosk' : '/setup'));
 app.get('/login', page('login.html'));
 app.get('/setup', auth.requireUser, page('setup.html'));
 app.get('/kiosk', auth.requireDevice, page('kiosk.html'));
@@ -98,12 +98,16 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 app.get('/api/me', auth.requireUser, (req, res) => {
-  res.json({ email: req.user.email, name: req.user.name, role: req.user.role, device: req.device ? { location: req.device.location_name } : null });
+  res.json({
+    email: req.user.email, name: req.user.name, role: req.user.role,
+    device: req.device ? { location: req.device.location_name } : null,
+    servicenowUrl: config.servicenowUrl,
+  });
 });
 
 // ---------- Kiosk (iPad) ----------
 app.get('/api/locations', auth.requireUser, (req, res) => {
-  res.json(db.prepare('SELECT id, name FROM locations WHERE active = 1 ORDER BY name').all());
+  res.json(db.prepare("SELECT id, name, COALESCE(campus, 'Other') AS campus FROM locations WHERE active = 1 ORDER BY campus, name").all());
 });
 
 // A signed-in consultant links this iPad to a location. The iPad gets its own token, which
@@ -304,7 +308,7 @@ app.get('/api/reports/export.csv', auth.requireUser, (req, res) => {
 app.get('/api/admin', auth.requireAdmin, (req, res) => {
   res.json({
     users: db.prepare('SELECT email, name, role, active FROM users ORDER BY active DESC, role, email').all(),
-    locations: db.prepare('SELECT * FROM locations ORDER BY active DESC, name').all(),
+    locations: db.prepare('SELECT * FROM locations ORDER BY active DESC, campus, name').all(),
     issues: db.prepare('SELECT * FROM issue_types ORDER BY active DESC, sort, label').all(),
     devices: db.prepare(`SELECT d.id, l.name AS location, d.created_by, d.created_at, d.last_seen FROM devices d
                          JOIN locations l ON l.id = d.location_id WHERE d.revoked_at IS NULL ORDER BY d.created_at DESC`).all(),
@@ -347,7 +351,12 @@ function saveRow(res, { table, col, max, body, extra = {} }) {
   }
   res.json({ ok: true });
 }
-app.post('/api/admin/locations', auth.requireAdmin, (req, res) => saveRow(res, { table: 'locations', col: 'name', max: 100, body: req.body }));
+app.post('/api/admin/locations', auth.requireAdmin, (req, res) => {
+  const extra = {};
+  if (typeof req.body.campus === 'string') extra.campus = clean(req.body.campus, 60) || null;
+  else if (!req.body.id) extra.campus = null;
+  saveRow(res, { table: 'locations', col: 'name', max: 100, body: req.body, extra });
+});
 app.post('/api/admin/issues', auth.requireAdmin, (req, res) => {
   const blankSort = req.body.sort == null || req.body.sort === '';
   const extra = { sort: blankSort ? (req.body.id ? null : 100) : Number(req.body.sort) };

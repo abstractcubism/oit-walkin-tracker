@@ -11,6 +11,7 @@
   dd { margin: 0; }
   .netid { font-family: var(--mono); font-size: 1.8rem; font-weight: 600; }
   .back { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-weight: 600; margin-bottom: 14px; }
+  .sn { display: inline-block; margin-top: 10px; font-weight: 600; }
   .notice { background: var(--warn-tint); color: var(--warn); font-weight: 600; }
   .ticket input { font-size: 1.2rem; width: 220px; text-transform: uppercase; }
   .grid { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; align-items: start; }
@@ -89,7 +90,8 @@ function render(w) {
       el('div', { class: 'card' },
         el('form', { class: 'ticket', onsubmit: (e) => { e.preventDefault(); saveTicket(); } },
           el('label', { for: 'ticket' }, 'ServiceNow ticket'),
-          el('div', { class: 'row' }, ticket, el('button', { type: 'submit' }, 'Save'), w.ticket ? copyBtn(w.ticket) : null)),
+          el('div', { class: 'row' }, ticket, el('button', { type: 'submit' }, 'Save'), w.ticket ? copyBtn(w.ticket) : null),
+          w.ticket ? el('a', { class: 'sn', href: servicenowLink(me.servicenowUrl, w.ticket), target: '_blank', rel: 'noopener' }, `Open ${w.ticket} in ServiceNow ↗`) : null),
         el('div', { style: 'margin-top:16px' },
           el('label', {}, 'Notes'), notes,
           el('button', { style: 'margin-top:8px', onclick: async () => { if (await act('update', { notes: notes.value })) toast('Notes saved'); } }, 'Save notes'))))].filter(Boolean));

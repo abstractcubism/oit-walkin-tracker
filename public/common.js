@@ -44,6 +44,12 @@ function toast(msg) {
   setTimeout(() => t.remove(), 2600);
 }
 
+// Link to a ticket in ServiceNow. nav_to.do keeps ServiceNow's normal frame; task.do covers
+// incidents, requests, RITMs and tasks, so one format works for every ticket number.
+function servicenowLink(base, ticket) {
+  return `${base}/nav_to.do?uri=${encodeURIComponent('task.do?sysparm_query=number=' + ticket)}`;
+}
+
 // Top navigation for staff pages.
 async function staffNav(active) {
   const me = await api('/api/me');

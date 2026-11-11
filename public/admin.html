@@ -31,7 +31,8 @@
     <div class="card">
       <h3>Locations</h3>
       <table><tbody id="locs"></tbody></table>
-      <form class="add row" id="addLoc"><input id="lName" placeholder="New location" required aria-label="New location"><button class="primary" type="submit">Add</button></form>
+      <form class="add row" id="addLoc"><input id="lName" placeholder="New location" required aria-label="New location" style="flex:1;min-width:140px"><input id="lCampus" placeholder="Campus" list="campuses" aria-label="Campus" style="width:150px"><button class="primary" type="submit">Add</button></form>
+      <datalist id="campuses"><option value="Busch"><option value="Livingston"><option value="College Avenue"><option value="Cook/Douglass"></datalist>
     </div>
     <div class="card">
       <h3>Issue buttons on the iPad</h3>
@@ -74,9 +75,13 @@ async function load() {
   }));
 
   $('locs').replaceChildren(...d.locations.map((l) => el('tr', { class: l.active ? null : 'off' },
-    el('td', {}, l.name),
+    el('td', {}, l.name, el('div', { class: 'small muted' }, l.campus || 'No campus set')),
     el('td', { style: 'text-align:right;white-space:nowrap' },
-      el('button', { onclick: () => { const n = prompt('Rename location', l.name); if (n) post('/api/admin/locations', { id: l.id, name: n, active: !!l.active }); } }, 'Rename'), ' ',
+      el('button', { onclick: () => {
+        const n = prompt('Location name', l.name); if (n == null) return;
+        const c = prompt('Campus (e.g. Busch, Livingston, College Avenue, Cook/Douglass)', l.campus || ''); if (c == null) return;
+        post('/api/admin/locations', { id: l.id, name: n, campus: c, active: !!l.active });
+      } }, 'Edit'), ' ',
       el('button', { onclick: () => post('/api/admin/locations', { id: l.id, active: !l.active }) }, l.active ? 'Hide' : 'Show')))));
 
   $('issues').replaceChildren(...d.issues.map((i) => el('tr', { class: i.active ? null : 'off' },
@@ -102,7 +107,7 @@ $('addUser').onsubmit = async (e) => {
   e.preventDefault();
   if (await post('/api/admin/users', { email: $('uEmail').value, name: $('uName').value, role: $('uRole').value })) e.target.reset();
 };
-$('addLoc').onsubmit = async (e) => { e.preventDefault(); if (await post('/api/admin/locations', { name: $('lName').value })) e.target.reset(); };
+$('addLoc').onsubmit = async (e) => { e.preventDefault(); if (await post('/api/admin/locations', { name: $('lName').value, campus: $('lCampus').value })) e.target.reset(); };
 $('addIssue').onsubmit = async (e) => { e.preventDefault(); if (await post('/api/admin/issues', { label: $('iLabel').value, sort: $('iSort').value })) e.target.reset(); };
 
 (async () => { me = await staffNav('/admin'); load(); })();
