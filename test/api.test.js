@@ -88,6 +88,9 @@ test('full walk-in flow', async () => {
   assert.equal((await ipad('POST', '/api/kiosk/walkins', { netid: 'abc123' })).status, 400, 'needs an issue');
   assert.equal((await ipad('POST', '/api/kiosk/walkins', { netid: 'abc123', description: 'help' })).status, 400, 'too short without a button');
   assert.equal((await ipad('POST', '/api/kiosk/walkins', { netid: 'abc123', issue_type: 'Made up' })).status, 400, 'unknown button');
+  assert.equal((await ipad('POST', '/api/kiosk/walkins', { netid: 'abc123', issue_type: 'Wi-Fi' })).status, 400, 'Wi-Fi needs a network');
+  assert.equal((await ipad('POST', '/api/kiosk/walkins', { netid: 'abc123', issue_type: 'Wi-Fi · Starbucks' })).status, 400, 'unknown network');
+  assert.equal((await ipad('POST', '/api/kiosk/walkins', { netid: 'abc123', issue_type: 'Canvas · eduroam' })).status, 400, 'no sub-choices on Canvas');
 
   // Submit two walk-ins.
   const w1 = (await ipad('POST', '/api/kiosk/walkins', { netid: 'ABC123', issue_type: 'Duo / 2FA', description: 'New phone <b>' })).body.id;
@@ -156,7 +159,7 @@ test('Slack outage: walk-in is saved and posted once Slack is back', async () =>
 
   slackDown = true;
   const before = slackPosts.length;
-  const r = await ipad2('POST', '/api/kiosk/walkins', { netid: 'zz9', issue_type: 'Email' });
+  const r = await ipad2('POST', '/api/kiosk/walkins', { netid: 'zz9', issue_type: 'Wi-Fi · eduroam' });
   assert.equal(r.status, 200, 'walk-in accepted even while Slack is down');
   await wait(300);
   assert.equal(slackPosts.length, before);

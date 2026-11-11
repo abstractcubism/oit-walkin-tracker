@@ -6,16 +6,23 @@
 <title>Set up iPad · OIT Walk-ins</title>
 <link rel="stylesheet" href="/app.css">
 <style>
-  .locs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 16px 0; }
-  .locs button { padding: 26px 12px; font-size: 1.2rem; border-radius: 14px; flex-direction: column; }
+  .wrap { max-width: 640px; width: 100%; }
+  .eyebrow { font-size: .8rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .wrap h1 { font-size: 2rem; margin: 6px 0 10px; }
+  .locs { margin: 24px 0; border-top: 2px solid var(--ink); }
+  .locs button { width: 100%; justify-content: space-between; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: none;
+    padding: 22px 4px; font-size: 1.35rem; font-weight: 600; }
+  .locs button:hover, .locs button:active { background: #ebe6de; }
+  .locs button .icon { width: 24px; height: 24px; color: var(--muted); }
 </style>
 </head>
 <body class="auth-bg">
 <div class="center">
-  <div class="card" style="max-width:720px;width:100%;padding:32px">
-    <h1>Set up this iPad</h1>
+  <div class="wrap">
+    <div class="eyebrow">Staff · iPad setup</div>
+    <h1>Which location is this iPad at?</h1>
     <p id="current" class="muted"></p>
-    <p>Pick the location this iPad is at. It will switch to the walk-in form and sign you out, so walk-ins can't see your account.</p>
+    <p class="muted">Tap one and the iPad switches to the check-in form. You'll be signed out on it so walk-ins can't see your account.</p>
     <div class="locs" id="locs"></div>
     <p class="error" id="err" role="alert"></p>
     <div class="row">
@@ -26,6 +33,7 @@
   </div>
 </div>
 <script src="/common.js"></script>
+<script src="/icons.js"></script>
 <script>
 (async () => {
   const err = document.getElementById('err');
@@ -43,11 +51,10 @@
   }
   const locs = await api('/api/locations');
   document.getElementById('locs').append(...locs.map((l) => el('button', {
-    class: 'primary',
     onclick: async () => {
       try { await api('/api/kiosk/setup', { location_id: l.id }); location.href = '/kiosk'; } catch (e) { err.textContent = e.message; }
     },
-  }, l.name)));
+  }, l.name, icon('arrow-right'))));
 })();
 </script>
 </body>

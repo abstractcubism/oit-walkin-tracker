@@ -6,51 +6,69 @@
 <title>Queue · OIT Walk-ins</title>
 <link rel="stylesheet" href="/app.css">
 <style>
-  .who { font-weight: 700; }
-  tr.waiting { background: #fffafb; }
-  tr.waiting.is-late { background: var(--scarlet-tint); }
-  tr.closed td { color: var(--muted); }
-  tr.closed .who { font-weight: 600; }
-  .filters label { margin: 0; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
-  td.actions { white-space: nowrap; text-align: right; }
-  tr.mine td:first-child { box-shadow: inset 4px 0 #e0a100; }
-  .empty { text-align: center; padding: 48px 20px; color: var(--muted); }
-  .empty .big { font-size: 2.4rem; display: block; margin-bottom: 8px; }
-  @media (max-width: 760px) { .col-loc, .col-ticket { display: none; } }
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); margin-bottom: 22px; overflow-x: auto; }
+  .tab { border: 0; border-radius: 0; background: none; padding: 12px 18px 11px; font-weight: 600; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -1px; white-space: nowrap; gap: 8px; }
+  .tab:hover { background: none; color: var(--ink); }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--scarlet); }
+  .tab .n { font-family: var(--mono); font-size: .85rem; min-width: 22px; padding: 1px 6px; border-radius: 3px; background: var(--bg); color: var(--muted); }
+  .tab .n.hot { background: var(--scarlet); color: #fff; }
+  .sound { margin-left: auto; align-self: center; font-weight: 500; font-size: .85rem; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; padding-left: 16px; margin-bottom: 0; }
+
+  h2.sec { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; display: flex; gap: 10px; align-items: baseline; }
+  h2.sec b { font-family: var(--mono); color: var(--ink); font-size: 1rem; letter-spacing: 0; }
+
+  .q { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); }
+  .item { display: grid; grid-template-columns: 76px 150px 1fr auto; gap: 18px; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .item:last-child { border-bottom: 0; }
+  .wait { font-family: var(--mono); font-size: 1.25rem; font-weight: 600; }
+  .wait small { display: block; font-family: "IBM Plex Sans", sans-serif; font-size: .75rem; color: var(--muted); font-weight: 500; }
+  .item.late .wait { color: var(--scarlet); }
+  .who { font-family: var(--mono); font-weight: 600; font-size: 1.05rem; overflow-wrap: anywhere; }
+  .who small { display: block; font-family: "IBM Plex Sans", sans-serif; font-weight: 400; font-size: .8rem; color: var(--muted); }
+  .issue small { display: block; color: var(--muted); font-size: .85rem; margin-top: 2px; }
+  .loc { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 2px; }
+  .acts { display: flex; gap: 8px; align-items: center; white-space: nowrap; }
+  .claimed-by { font-size: .85rem; color: var(--muted); }
+  .empty { padding: 36px 18px; color: var(--muted); text-align: center; }
+
+  details { margin-top: 28px; }
+  summary { cursor: pointer; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary h2.sec::after { content: "Show"; margin-left: auto; text-transform: none; letter-spacing: 0; color: var(--scarlet); font-weight: 600; }
+  details[open] summary h2.sec::after { content: "Hide"; }
+  .done-row { display: grid; grid-template-columns: 76px 150px 1fr auto; gap: 18px; padding: 10px 18px; border-bottom: 1px solid var(--line); color: var(--muted); align-items: center; text-decoration: none; }
+  .done-row:hover { background: #faf8f5; }
+  .done-row:last-child { border-bottom: 0; }
+  .done-row .who { color: var(--ink); font-size: .95rem; }
+
+  @media (max-width: 720px) {
+    .item, .done-row { grid-template-columns: 56px 1fr auto; }
+    .item .issue, .done-row .issue { grid-column: 2 / -1; grid-row: 2; }
+  }
 </style>
 </head>
 <body>
 <main>
-  <div class="page-h">
-    <h1>Walk-in queue</h1>
-    <div class="row filters">
-      <select id="loc" aria-label="Location"><option value="">All locations</option></select>
-      <select id="view" aria-label="Show">
-        <option value="today">Today</option>
-        <option value="open">Open only</option>
-      </select>
-      <label class="small"><input type="checkbox" id="sound"> Sound on new walk-in</label>
-    </div>
-  </div>
-  <div class="stats" id="stats"></div>
-  <div class="card flush" style="overflow-x:auto">
-    <table>
-      <thead><tr><th>Status</th><th>Arrived</th><th>Who</th><th>Issue</th><th class="col-loc">Location</th><th class="col-ticket">Ticket</th><th></th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
-  </div>
-  <p class="small muted">Updates every 5 seconds. Walk-ins waiting more than 10 minutes are shown in red.</p>
+  <div class="tabs" id="tabs" role="tablist" aria-label="Location"></div>
+  <h2 class="sec">Waiting <b id="nOpen">0</b></h2>
+  <div class="q" id="open"></div>
+  <details id="doneBox">
+    <summary><h2 class="sec">Finished today <b id="nDone">0</b></h2></summary>
+    <div class="q" id="done"></div>
+  </details>
 </main>
 <script src="/common.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const LATE_MIN = 10;
 let me;
+let locs = [];
+let all = [];
 let seen = null;
 
-// Remember filters on this computer.
-const saved = (() => { try { return JSON.parse(localStorage.getItem('queueFilters') || '{}'); } catch { return {}; } })();
-function save() { try { localStorage.setItem('queueFilters', JSON.stringify({ loc: $('loc').value, view: $('view').value, sound: $('sound').checked })); } catch {} }
+// Each computer remembers its location tab and sound setting.
+const prefs = (() => { try { return JSON.parse(localStorage.getItem('queuePrefs') || '{}'); } catch { return {}; } })();
+const savePrefs = () => { try { localStorage.setItem('queuePrefs', JSON.stringify(prefs)); } catch {} };
 
 function beep() {
   try {
@@ -69,56 +87,67 @@ async function act(w, action) {
   } catch (e) { toast(e.message); refresh(); }
 }
 
-function row(w) {
-  const open = w.status === 'waiting' || w.status === 'claimed';
-  const waitMin = minutesSince(w.created_at, w.claimed_at || w.closed_at);
-  const late = w.status === 'waiting' && waitMin >= LATE_MIN;
-  const cls = [w.status === 'waiting' ? 'waiting' : '', late ? 'is-late' : '', !open ? 'closed' : '', w.claimed_by === me.email && w.status === 'claimed' ? 'mine' : ''].join(' ');
-  return el('tr', { class: cls },
-    el('td', {}, chip(w.status), w.status === 'claimed' ? el('div', { class: 'small muted' }, w.claimed_by_name || w.claimed_by) : null),
-    el('td', {}, fmtTime(w.created_at), el('div', { class: 'small ' + (late ? 'late' : 'muted') }, w.status === 'waiting' ? `waiting ${ago(w.created_at)}` : `waited ${waitMin} min`)),
-    el('td', {}, el('div', { class: 'who' }, who(w)), !w.netid && w.email ? el('div', { class: 'small muted' }, w.email) : null),
-    el('td', {}, w.issue_type || '', w.description ? el('div', { class: 'small muted' }, w.description.length > 90 ? w.description.slice(0, 90) + '…' : w.description) : null),
-    el('td', { class: 'col-loc' }, w.location),
-    el('td', { class: 'col-ticket' }, w.ticket ? el('code', {}, w.ticket) : ''),
-    el('td', { class: 'actions' },
-      w.status === 'waiting' ? el('button', { class: 'primary', onclick: () => act(w, 'claim') }, 'Claim') : null, ' ',
-      el('a', { class: 'btn', href: `/w/${w.id}` }, open ? 'Open' : 'View')));
+const allTab = () => !prefs.loc; // rows only need a location label on the "All" tab
+const short = (s, n) => (s.length > n ? s.slice(0, n) + '…' : s);
+
+function openItem(w) {
+  const mins = minutesSince(w.created_at);
+  return el('div', { class: 'item' + (w.status === 'waiting' && mins >= LATE_MIN ? ' late' : '') },
+    el('div', { class: 'wait' }, mins < 1 ? 'now' : mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h${mins % 60}`, el('small', {}, fmtTime(w.created_at))),
+    el('div', { class: 'who' }, who(w), !w.netid && w.email ? el('small', {}, w.email) : null),
+    el('div', { class: 'issue' }, allTab() ? el('div', { class: 'loc' }, w.location) : null,
+      w.issue_type || 'Something else', w.description ? el('small', {}, short(w.description, 110)) : null),
+    el('div', { class: 'acts' },
+      w.status === 'waiting'
+        ? el('button', { class: 'primary', onclick: () => act(w, 'claim') }, 'Claim')
+        : el('span', { class: 'claimed-by' }, w.claimed_by === me.email ? 'Yours' : 'Claimed by ' + (w.claimed_by_name || w.claimed_by).split(/[ @]/)[0]),
+      el('a', { class: 'btn', href: `/w/${w.id}` }, 'Open')));
+}
+
+function doneItem(w) {
+  return el('a', { class: 'done-row', href: `/w/${w.id}` },
+    el('div', {}, fmtTime(w.created_at)),
+    el('div', { class: 'who' }, who(w)),
+    el('div', { class: 'issue' }, allTab() ? `${w.location} · ` : '', w.issue_type || 'Something else'),
+    el('div', {}, w.status === 'left' ? 'Left' : w.ticket ? el('code', {}, w.ticket) : 'Resolved'));
+}
+
+function render() {
+  const here = prefs.loc ? all.filter((w) => String(w.location_id) === String(prefs.loc)) : all;
+  const open = here.filter((w) => w.status === 'waiting' || w.status === 'claimed')
+    .sort((a, b) => (a.status === 'waiting' ? 0 : 1) - (b.status === 'waiting' ? 0 : 1) || a.created_at.localeCompare(b.created_at));
+  const done = here.filter((w) => w.status === 'resolved' || w.status === 'left').sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+  const waitingAt = (id) => all.filter((w) => w.status === 'waiting' && (!id || String(w.location_id) === String(id))).length;
+  $('tabs').replaceChildren(
+    ...[...locs.map((l) => [l.id, l.name]), ['', 'All locations']].map(([id, name]) => {
+      const n = waitingAt(id);
+      return el('button', { class: 'tab', role: 'tab', 'aria-selected': String(String(prefs.loc || '') === String(id)),
+        onclick: () => { prefs.loc = id; savePrefs(); seen = null; render(); } }, name, el('span', { class: 'n' + (n ? ' hot' : '') }, n));
+    }),
+    el('label', { class: 'sound' }, el('input', { type: 'checkbox', checked: !!prefs.sound, onchange: (e) => { prefs.sound = e.target.checked; savePrefs(); } }), 'Sound'));
+
+  const waiting = open.filter((w) => w.status === 'waiting');
+  $('nOpen').textContent = waiting.length;
+  $('open').replaceChildren(...(open.length ? open.map(openItem) : [el('div', { class: 'empty' }, 'Nobody waiting.')]));
+  $('nDone').textContent = done.length;
+  $('done').replaceChildren(...(done.length ? done.map(doneItem) : [el('div', { class: 'empty' }, 'Nothing finished yet today.')]));
+  document.title = (waiting.length ? `(${waiting.length}) ` : '') + 'Queue · OIT Walk-ins';
+
+  if (seen && prefs.sound && waiting.some((w) => !seen.has(w.id))) beep();
+  seen = new Set(here.map((w) => w.id));
 }
 
 async function refresh() {
-  const q = new URLSearchParams({ view: $('view').value });
-  if ($('loc').value) q.set('location', $('loc').value);
   const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
-  q.set('since', midnight.toISOString());
-  const list = await api('/api/walkins?' + q);
-
-  // Waiting first (oldest first), then claimed, then closed (newest first).
-  const rank = { waiting: 0, claimed: 1, resolved: 2, left: 2 };
-  list.sort((a, b) => rank[a.status] - rank[b.status] || (rank[a.status] < 2 ? a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at)));
-
-  const waiting = list.filter((w) => w.status === 'waiting');
-  if (seen && $('sound').checked && waiting.some((w) => !seen.has(w.id))) beep();
-  seen = new Set(list.map((w) => w.id));
-  document.title = (waiting.length ? `(${waiting.length}) ` : '') + 'Queue · OIT Walk-ins';
-
-  const longest = waiting.length ? ago(waiting[0].created_at) : '–';
-  $('stats').replaceChildren(
-    el('div', { class: 'stat red' }, el('b', {}, waiting.length), 'waiting'),
-    el('div', { class: 'stat amber' }, el('b', {}, list.filter((w) => w.status === 'claimed').length), 'being helped'),
-    el('div', { class: 'stat gray' }, el('b', {}, longest), 'longest wait'),
-    el('div', { class: 'stat green' }, el('b', {}, list.filter((w) => w.status === 'resolved').length), 'resolved today'));
-  $('rows').replaceChildren(...(list.length ? list.map(row) : [el('tr', {}, el('td', { colspan: 7, class: 'empty' }, 'No walk-ins yet. Nice and quiet.'))]));
+  all = await api('/api/walkins?' + new URLSearchParams({ since: midnight.toISOString() }));
+  render();
 }
 
 (async () => {
   me = await staffNav('/dashboard');
-  const locs = await api('/api/locations');
-  $('loc').append(...locs.map((l) => el('option', { value: l.id }, l.name)));
-  if (saved.loc) $('loc').value = saved.loc;
-  if (saved.view) $('view').value = saved.view;
-  $('sound').checked = !!saved.sound;
-  ['loc', 'view', 'sound'].forEach((id) => $(id).addEventListener('change', () => { save(); refresh(); }));
+  locs = await api('/api/locations');
+  if (prefs.loc && !locs.some((l) => String(l.id) === String(prefs.loc))) prefs.loc = '';
   await refresh();
   setInterval(() => refresh().catch(() => {}), 5000);
 })();

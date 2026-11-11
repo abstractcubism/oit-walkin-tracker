@@ -81,12 +81,14 @@ async function load() {
 
   $('issues').replaceChildren(...d.issues.map((i) => el('tr', { class: i.active ? null : 'off' },
     el('td', { class: 'muted', style: 'width:50px' }, i.sort),
-    el('td', {}, i.label),
+    el('td', {}, i.label, i.options ? el('div', { class: 'small muted' }, 'Choices: ' + i.options.split(',').join(', ')) : null),
     el('td', { style: 'text-align:right;white-space:nowrap' },
       el('button', { onclick: () => {
         const label = prompt('Button text', i.label); if (label == null) return;
         const sort = prompt('Order (lower shows first)', i.sort); if (sort == null) return;
-        post('/api/admin/issues', { id: i.id, label, sort, active: !!i.active });
+        const options = prompt('Optional sub-choices, comma-separated (e.g. eduroam, RUatHome). Leave blank for none.', (i.options || '').split(',').join(', '));
+        if (options == null) return;
+        post('/api/admin/issues', { id: i.id, label, sort, options, active: !!i.active });
       } }, 'Edit'), ' ',
       el('button', { onclick: () => post('/api/admin/issues', { id: i.id, active: !i.active }) }, i.active ? 'Hide' : 'Show')))));
 

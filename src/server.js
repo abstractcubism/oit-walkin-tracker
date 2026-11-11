@@ -1,7 +1,7 @@
 const path = require('path');
 const express = require('express');
 const config = require('./config');
-const { db, now, tx } = require('./db');
+const { db, now, tx, parseOptions } = require('./db');
 const auth = require('./auth');
 const slack = require('./slack');
 const { startRetention } = require('./retention');
@@ -130,7 +130,8 @@ app.get('/api/kiosk/info', auth.requireDevice, (req, res) => {
   res.json({
     location: req.device.location_name,
     minDescription: MIN_DESCRIPTION,
-    issues: db.prepare('SELECT label FROM issue_types WHERE active = 1 ORDER BY sort, label').all().map((r) => r.label),
+    issues: db.prepare('SELECT label, options FROM issue_types WHERE active = 1 ORDER BY sort, label').all()
+      .map((r) => ({ label: r.label, options: parseOptions(r.options) })),
   });
 });
 
@@ -153,8 +154,13 @@ app.post('/api/kiosk/walkins', auth.requireDevice, (req, res) => {
   }
   // Either a quick-tap issue, or a real description (a few words, not just "help").
   if (issueType) {
-    const known = db.prepare('SELECT 1 FROM issue_types WHERE label = ? AND active = 1').get(issueType);
+    // Either "Label", or "Label · Option" for buttons with sub-choices (e.g. "Wi-Fi · eduroam").
+    const [label, option] = issueType.split(' · ');
+    const known = db.prepare('SELECT options FROM issue_types WHERE label = ? AND active = 1').get(label);
     if (!known) return bad(res, 'Please pick one of the issue buttons.');
+    const opts = parseOptions(known.options);
+    if (opts.length && !opts.includes(option)) return bad(res, `Pick which ${label} it is: ${opts.join(' or ')}.`);
+    if (!opts.length && option) return bad(res, 'Please pick one of the issue buttons.');
   } else if (description.length < MIN_DESCRIPTION) {
     return bad(res, 'Tap the issue that fits best, or tell us a bit more about what you need.');
   }
@@ -271,7 +277,7 @@ app.get('/api/reports', auth.requireUser, (req, res) => {
         ${MINUTES('w.created_at', 'w.claimed_at')} AS avg_wait_min,
         ${MINUTES('w.claimed_at', 'w.closed_at')} AS avg_handle_min ${base}`).get(from, to),
     byLocation: q(`SELECT l.name AS label, COUNT(*) AS n, ${MINUTES('w.created_at', 'w.claimed_at')} AS avg_wait_min ${base} GROUP BY l.name ORDER BY n DESC`),
-    byIssue: q(`SELECT COALESCE(w.issue_type, 'Other / typed in') AS label, COUNT(*) AS n ${base} GROUP BY label ORDER BY n DESC`),
+    byIssue: q(`SELECT COALESCE(w.issue_type, 'Something else') AS label, COUNT(*) AS n ${base} GROUP BY label ORDER BY n DESC`),
     byConsultant: q(`SELECT COALESCE(u.name, w.claimed_by) AS label, COUNT(*) AS n ${base.replace('WHERE', 'LEFT JOIN users u ON u.email = w.claimed_by WHERE')} AND w.claimed_by IS NOT NULL GROUP BY w.claimed_by ORDER BY n DESC`),
     // Raw timestamps; the browser buckets them by local hour/day.
     times: q(`SELECT w.created_at ${base}`).map((r) => r.created_at),
@@ -333,7 +339,7 @@ function saveRow(res, { table, col, max, body, extra = {} }) {
     } else {
       if (!value) return bad(res, 'Enter a name.');
       const cols = [col, ...Object.keys(extra)];
-      db.prepare(`INSERT INTO ${table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`).run(value, ...Object.values(extra).map((v) => v ?? 100));
+      db.prepare(`INSERT INTO ${table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`).run(value, ...Object.values(extra));
     }
   } catch (e) {
     if (String(e.message).includes('UNIQUE')) return bad(res, 'That one already exists.');
@@ -342,10 +348,14 @@ function saveRow(res, { table, col, max, body, extra = {} }) {
   res.json({ ok: true });
 }
 app.post('/api/admin/locations', auth.requireAdmin, (req, res) => saveRow(res, { table: 'locations', col: 'name', max: 100, body: req.body }));
-app.post('/api/admin/issues', auth.requireAdmin, (req, res) => saveRow(res, {
-  table: 'issue_types', col: 'label', max: 60, body: req.body,
-  extra: { sort: req.body.sort == null || req.body.sort === '' ? null : Number(req.body.sort) },
-}));
+app.post('/api/admin/issues', auth.requireAdmin, (req, res) => {
+  const blankSort = req.body.sort == null || req.body.sort === '';
+  const extra = { sort: blankSort ? (req.body.id ? null : 100) : Number(req.body.sort) };
+  if (typeof req.body.options === 'string') extra.options = parseOptions(req.body.options).map((o) => o.slice(0, 40)).join(',');
+  else if (!req.body.id) extra.options = '';
+  if (String(req.body.label || '').includes(' · ')) return bad(res, 'Button text can\'t contain " · ".');
+  saveRow(res, { table: 'issue_types', col: 'label', max: 60, body: req.body, extra });
+});
 
 app.post('/api/admin/devices/:id/revoke', auth.requireAdmin, (req, res) => {
   db.prepare('UPDATE devices SET revoked_at = ? WHERE id = ?').run(now(), Number(req.params.id));

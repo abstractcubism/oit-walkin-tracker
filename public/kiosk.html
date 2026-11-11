@@ -55,11 +55,13 @@
   .line:focus { border-bottom-color: var(--scarlet); }
   .swap { margin-top: 12px; font-size: 1rem; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; align-self: flex-start; padding: 6px 0; }
 
-  .more { flex: 1; display: flex; flex-direction: column; padding-top: clamp(20px, 4vh, 40px); min-height: 0; }
-  .more textarea { width: 100%; flex: 1; min-height: 72px; resize: none; border: 1px solid var(--rule); background: #fbf9f6; border-radius: 4px;
+  .more { display: flex; flex-direction: column; padding-top: clamp(20px, 4vh, 40px); }
+  .more textarea { width: 100%; height: 58px; resize: none; transition: height .25s ease; border: 1px solid var(--rule); background: #fbf9f6; border-radius: 4px;
     padding: 12px 14px; font-size: 1.15rem; line-height: 1.35; margin-top: 8px; outline: none; }
   .more textarea:focus { border-color: var(--ink); }
+  .more.big textarea { height: clamp(120px, 26vh, 230px); }
   .more.needed textarea { border-color: var(--scarlet); }
+  .side { margin-top: auto; }
   .count { font-family: var(--mono); font-size: .8rem; color: var(--scarlet); }
 
   .go { margin-top: 16px; width: 100%; display: flex; align-items: center; justify-content: space-between; padding: clamp(16px, 2.6vh, 22px) 24px;
@@ -71,11 +73,17 @@
 
   /* Issues: a printed menu rather than a wall of cards */
   .issues { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; flex: 1; min-height: 0; border-top: 1px solid var(--rule); }
-  .issue { display: flex; align-items: center; gap: 14px; padding: 0 14px; text-align: left; font-size: clamp(1.05rem, 2.5vh, 1.3rem); font-weight: 500;
+  .issue { display: flex; flex-direction: column; justify-content: center; cursor: pointer; padding: 0 14px; text-align: left; font-size: clamp(1.05rem, 2.5vh, 1.3rem); font-weight: 500;
     border-bottom: 1px solid var(--rule); min-height: 56px; position: relative; }
   .issue:nth-child(odd) { border-right: 1px solid var(--rule); }
   .issue .icon { width: 26px; height: 26px; color: var(--soft); }
+  .issue .main { display: flex; align-items: center; gap: 14px; width: 100%; }
   .issue .tick { margin-left: auto; opacity: 0; color: #fff; }
+  .issue .opts { display: none; gap: 8px; margin-top: 10px; }
+  .issue.open .opts { display: flex; }
+  .issue.open .tick { display: none; }
+  .opt { flex: 1; padding: 10px 8px; border: 1.5px solid rgba(255,255,255,.55); border-radius: 3px; color: #fff; font-size: 1rem; font-weight: 600; font-style: normal; }
+  .opt[aria-pressed="true"] { background: var(--scarlet); border-color: var(--scarlet); }
   .issue:active { background: #ebe6de; }
   .issue[aria-pressed="true"] { background: var(--ink); color: #fff; }
   .issue[aria-pressed="true"] .icon { color: #fff; }
@@ -113,11 +121,11 @@
     .you { border-right: 0; padding-right: 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 32px; align-items: start; }
     .you .who { grid-column: 1 / -1; }
     .you .more { grid-column: 1; }
-    .you .more textarea { flex: none; height: 110px; }
+    .you .more.big textarea { height: 120px; }
     .you .side { grid-column: 2; padding-top: 18px; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
     .what { padding-left: 0; padding-top: 20px; }
   }
-  @media (orientation: landscape) { .you .side { display: contents; } }
+  @media (orientation: landscape) { .you .side { display: contents; } .you .go { margin-top: auto; } }
 </style>
 </head>
 <body>
@@ -139,7 +147,7 @@
           <label class="label" for="email">Email</label>
           <input class="line" id="email" type="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done">
         </div>
-        <button type="button" class="swap" id="swap">No NetID? Use your name and email</button>
+        <button type="button" class="swap" id="swap">I don't have a NetID</button>
       </div>
       <div class="more" id="more">
         <label class="label" for="desc"><span id="descLabel">Anything we should know</span><span id="descReq"></span></label>
@@ -161,7 +169,7 @@
   <div class="stub">
     <div class="no"><span id="stubNo"></span><span id="stubTime"></span></div>
     <h1>You're checked in.</h1>
-    <p><span class="who" id="stubWho"></span>, grab a seat. A consultant will come find you.</p>
+    <p><span class="who" id="stubWho"></span>, <span id="stubText"></span></p>
     <div class="timer" id="timer"><div></div></div>
   </div>
 </div>
@@ -179,10 +187,13 @@ const IDLE_MS = 90 * 1000; // clear a half-filled form after 90s untouched
 const DONE_MS = 7 * 1000;  // how long the confirmation shows
 const NETID_RE = /^[a-z]{2,8}[0-9]{1,6}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-let selected = null;
+let selected = null;     // issue label, OTHER, or null
+let sub = null;          // chosen sub-choice, e.g. "eduroam"
+let subOptions = [];     // sub-choices of the selected issue
 let minDesc = 10;
 let idleTimer = null;
 let usingNetid = true;
+let hasSeating = false;
 let tried = false; // did they press Check in at least once?
 
 $('goIcon').replaceWith(icon('arrow-right'));
@@ -203,25 +214,22 @@ setInterval(tick, 15000); tick();
 function check() {
   const who = usingNetid ? NETID_RE.test($('netid').value.trim())
     : !!$('name').value.trim() && EMAIL_RE.test($('email').value.trim());
-  const needDesc = !selected || selected === OTHER;
+  const needDesc = selected === OTHER; // a topic button is required; "Something else" needs a description
   const len = $('desc').value.trim().length;
-  return { who, needDesc, desc: !needDesc || len >= minDesc, len };
+  return { who, needDesc, desc: !needDesc || len >= minDesc, len, subOk: !subOptions.length || !!sub };
 }
 
 function update() {
   const s = check();
-  $('descLabel').textContent = s.needDesc ? 'Describe the problem' : 'Anything we should know';
-  // Before anything is picked this is just an alternative to the buttons; once they pick
-  // "Something else" (or try to check in without a button) it becomes clearly required.
-  const strict = selected === OTHER || tried;
+  $('more').classList.toggle('big', s.needDesc);
+  $('descLabel').textContent = s.needDesc ? 'Short description' : 'Anything we should know';
   let tag = 'Optional'; let cls = '';
-  if (s.needDesc && s.len >= minDesc) tag = 'Got it';
-  else if (s.needDesc && strict) { tag = `Required · ${minDesc - s.len} more`; cls = 'req'; }
-  else if (s.needDesc) { tag = 'or pick a topic'; cls = 'soft'; }
+  if (s.needDesc) { tag = s.desc ? 'Got it' : `Required · ${minDesc - s.len} more`; cls = s.desc ? '' : 'req'; }
   $('descReq').textContent = tag;
   $('descReq').className = cls;
-  $('more').classList.toggle('needed', s.needDesc && selected === OTHER && s.len < minDesc);
-  $('go').classList.toggle('ready', s.who && (selected || s.desc) && s.desc);
+  $('desc').placeholder = s.needDesc ? 'What do you need help with?' : '';
+  $('more').classList.toggle('needed', s.needDesc && tried && !s.desc);
+  $('go').classList.toggle('ready', s.who && !!selected && s.desc && s.subOk);
   $('msg').textContent = '';
 }
 ['netid', 'name', 'email', 'desc'].forEach((id) => $(id).addEventListener('input', update));
@@ -230,7 +238,7 @@ function setMode(netid) {
   usingNetid = netid;
   $('netidBox').classList.toggle('hidden', !netid);
   $('nameBox').classList.toggle('hidden', netid);
-  $('swap').textContent = netid ? 'No NetID? Use your name and email' : 'I have a NetID';
+  $('swap').textContent = netid ? "I don't have a NetID" : 'I have a NetID';
   update();
 }
 $('swap').onclick = () => { setMode(!usingNetid); (usingNetid ? $('netid') : $('name')).focus(); };
@@ -247,25 +255,52 @@ function nudge(id, text) {
   $('msg').textContent = text;
 }
 
-function issueButton(label, value, iconName, extra) {
-  return el('button', {
-    type: 'button', class: 'issue ' + (extra || ''), 'aria-pressed': 'false',
-    onclick: (e) => {
-      const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
-      document.querySelectorAll('.issue').forEach((b) => b.setAttribute('aria-pressed', 'false'));
-      e.currentTarget.setAttribute('aria-pressed', String(on));
-      selected = on ? value : null;
-      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-      update();
-    },
-  }, icon(iconName), el('span', {}, label), icon('check', 'tick'));
+// Clear every issue selection (and close any sub-choice row).
+function clearIssues() {
+  document.querySelectorAll('.issue').forEach((b) => { b.setAttribute('aria-pressed', 'false'); b.classList.remove('open'); });
+  document.querySelectorAll('.opt').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+  selected = null; sub = null; subOptions = [];
+}
+
+function issueButton(label, value, iconName, extra, options) {
+  options = options || [];
+  const cell = el('div', { class: 'issue ' + (extra || ''), 'aria-pressed': 'false', role: 'button', tabindex: '0' });
+  const main = el('span', { class: 'main' }, icon(iconName), el('span', {}, label), icon('check', 'tick'));
+  cell.append(main);
+  if (options.length) {
+    // Buttons with sub-choices (e.g. Wi-Fi) open into a row of choices once tapped.
+    cell.classList.add('has-opts');
+    cell.append(el('span', { class: 'opts' }, options.map((o) => el('button', {
+      type: 'button', class: 'opt', 'aria-pressed': 'false',
+      onclick: (e) => {
+        e.stopPropagation();
+        cell.querySelectorAll('.opt').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+        e.currentTarget.setAttribute('aria-pressed', 'true');
+        sub = o;
+        update();
+      },
+    }, o))));
+  }
+  cell.addEventListener('click', () => {
+    const on = cell.getAttribute('aria-pressed') !== 'true';
+    if (!on && options.length) return; // tapping an open Wi-Fi cell outside a choice does nothing
+    clearIssues();
+    if (on) {
+      cell.setAttribute('aria-pressed', 'true');
+      cell.classList.toggle('open', options.length > 0);
+      selected = value; subOptions = options;
+    }
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    update();
+    if (on && value === OTHER) setTimeout(() => $('desc').focus(), 260);
+  });
+  return cell;
 }
 
 function reset() {
   $('f').reset();
-  selected = null;
+  clearIssues();
   tried = false;
-  document.querySelectorAll('.issue').forEach((b) => b.setAttribute('aria-pressed', 'false'));
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   setMode(true);
 }
@@ -279,8 +314,11 @@ async function load() {
   try {
     const info = await api('/api/kiosk/info');
     minDesc = info.minDescription || 10;
-    $('issues').replaceChildren(...info.issues.map((l) => issueButton(l, l, iconFor(l))), issueButton('Something else', OTHER, 'pencil-line', 'other'));
-    selected = null;
+    // Only the help desk has a waiting area, so only it tells people to sit down.
+    hasSeating = /help\s*desk/i.test(info.location || '');
+    $('issues').replaceChildren(...info.issues.map((i) => issueButton(i.label, i.label, iconFor(i.label), '', i.options)),
+      issueButton('Something else', OTHER, 'pencil-line', 'other'));
+    clearIssues();
     update();
   } catch (e) { if (e.status === 401) showOff(); }
 }
@@ -290,14 +328,15 @@ $('f').onsubmit = async (e) => {
   tried = true; update();
   const s = check();
   if (!s.who) return nudge(usingNetid ? 'netidBox' : 'nameBox', usingNetid ? 'Enter your NetID, like abc123.' : 'Enter your name and a valid email.');
-  if (!selected && !s.desc) return nudge('issues', 'Pick what you need help with, or describe it.');
-  if (!s.desc) return nudge('more', 'Tell us a little more about the problem.');
+  if (!selected) return nudge('issues', 'Pick what you need help with. If nothing fits, choose Something else.');
+  if (!s.subOk) return nudge('issues', `Which ${selected}? Tap ${subOptions.join(' or ')}.`);
+  if (!s.desc) return nudge('more', 'Add a short description of the problem.');
 
   const body = {
     netid: usingNetid ? $('netid').value.trim() : '',
     name: usingNetid ? '' : $('name').value.trim(),
     email: usingNetid ? '' : $('email').value.trim(),
-    issue_type: selected && selected !== OTHER ? selected : '',
+    issue_type: selected && selected !== OTHER ? (sub ? `${selected} · ${sub}` : selected) : '',
     description: $('desc').value.trim(),
   };
   $('go').disabled = true;
@@ -307,6 +346,7 @@ $('f').onsubmit = async (e) => {
     $('stubNo').textContent = 'No. ' + String(r.id).padStart(3, '0');
     $('stubTime').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     $('stubWho').textContent = body.netid ? body.netid.toLowerCase() : body.name.split(' ')[0];
+    $('stubText').textContent = hasSeating ? 'grab a seat. A consultant will come find you.' : 'a consultant will be with you shortly.';
     $('doneView').classList.remove('hidden');
     const t = $('timer'); t.classList.remove('run'); t.firstElementChild.style.transitionDuration = DONE_MS + 'ms';
     void t.offsetWidth; t.classList.add('run');
