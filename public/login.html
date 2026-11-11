@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · OIT Walk-ins</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="center">
+  <div class="card signin">
+    <h1>OIT Walk-ins</h1>
+    <p class="muted">Consultant sign-in</p>
+    <div id="buttons"></div>
+    <p class="error" id="err" role="alert"></p>
+  </div>
+</div>
+<script src="/common.js"></script>
+<script>
+(async () => {
+  const params = new URLSearchParams(location.search);
+  const next = params.get('next') && params.get('next').startsWith('/') && !params.get('next').startsWith('//') ? params.get('next') : '/dashboard';
+  const err = document.getElementById('err');
+  const box = document.getElementById('buttons');
+  if (params.get('error')) err.textContent = params.get('error');
+
+  const cfg = await api('/api/auth/config');
+  const domains = (d) => d.map((x) => '@' + x).join(' or ');
+
+  if (cfg.microsoft) {
+    box.append(el('a', { class: 'btn primary', href: '/auth/microsoft?next=' + encodeURIComponent(next) }, 'Sign in with Microsoft'),
+      el('p', { class: 'small muted' }, 'OIT staff account (' + domains(cfg.microsoft.domains) + ')'));
+  }
+  if (cfg.google) {
+    const holder = el('div', { style: 'display:flex;justify-content:center;margin-top:10px' });
+    box.append(holder, el('p', { class: 'small muted' }, 'Google ' + domains(cfg.google.domains) + ' (must be on the consultant list)'));
+    const s = el('script', { src: 'https://accounts.google.com/gsi/client', async: true });
+    s.onload = () => {
+      google.accounts.id.initialize({
+        client_id: cfg.google.clientId,
+        hd: cfg.google.domains[0],
+        callback: async ({ credential }) => {
+          try { await api('/api/auth/google', { credential }); location.href = next; } catch (e) { err.textContent = e.message; }
+        },
+      });
+      google.accounts.id.renderButton(holder, { theme: 'outline', size: 'large', text: 'signin_with', width: 320 });
+    };
+    document.head.append(s);
+  }
+  if (cfg.devLogin) {
+    const input = el('input', { type: 'email', placeholder: 'you@scarletmail.rutgers.edu', style: 'width:100%', 'aria-label': 'Email' });
+    box.append(el('hr'), el('p', { class: 'small' }, el('strong', {}, 'Test mode: '), 'sign in by email only. Turn off DEV_LOGIN in production.'),
+      el('form', { onsubmit: async (e) => {
+        e.preventDefault();
+        try { await api('/api/auth/dev', { email: input.value }); location.href = next; } catch (x) { err.textContent = x.message; }
+      } }, input, el('button', { class: 'btn', type: 'submit' }, 'Test sign-in')));
+  }
+  if (!cfg.microsoft && !cfg.google && !cfg.devLogin) {
+    box.append(el('p', {}, 'No sign-in method is set up yet. Add Google or Microsoft keys to the server settings.'));
+  }
+})();
+</script>
+</body>
+</html>

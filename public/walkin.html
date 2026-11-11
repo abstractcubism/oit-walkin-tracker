@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Walk-in · OIT Walk-ins</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  dl { display: grid; grid-template-columns: 140px 1fr; gap: 10px 16px; margin: 0; }
+  dt { color: var(--muted); font-weight: 600; }
+  dd { margin: 0; }
+  .netid { font-size: 1.6rem; font-weight: 700; }
+  .ticket input { font-size: 1.2rem; width: 220px; text-transform: uppercase; }
+  .grid { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; align-items: start; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } dl { grid-template-columns: 110px 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <p><a href="/dashboard">← Back to queue</a></p>
+  <div id="app"></div>
+</main>
+<script src="/common.js"></script>
+<script>
+const id = Number(location.pathname.split('/').pop());
+let me;
+
+async function act(action, body = {}) {
+  try {
+    const w = await api(`/api/walkins/${id}/${action}`, body);
+    render(w);
+    return true;
+  } catch (e) {
+    toast(e.message);
+    load();
+    return false;
+  }
+}
+
+function copyBtn(text) {
+  return el('button', { class: 'small', onclick: async () => {
+    try { await navigator.clipboard.writeText(text); toast('Copied'); } catch { toast('Copy failed'); }
+  } }, 'Copy');
+}
+
+function render(w) {
+  document.title = `#${w.id} ${who(w)} · OIT Walk-ins`;
+  const open = w.status === 'waiting' || w.status === 'claimed';
+  const mine = w.claimed_by === me.email;
+
+  const ticket = el('input', { id: 'ticket', value: w.ticket || '', placeholder: 'INC0012345', 'aria-label': 'ServiceNow ticket number', autocomplete: 'off' });
+  const notes = el('textarea', { rows: 4, placeholder: 'Internal notes (optional)', 'aria-label': 'Notes' }, w.notes || '');
+  const saveTicket = async () => {
+    if ((ticket.value.trim().toUpperCase() || null) === (w.ticket || null)) return true;
+    const ok = await act('update', { ticket: ticket.value });
+    if (ok) toast('Ticket saved');
+    return ok;
+  };
+
+  const actions = [];
+  if (w.status === 'waiting') actions.push(el('button', { class: 'primary', onclick: () => act('claim') }, 'Claim'));
+  if (w.status === 'claimed') {
+    actions.push(el('button', { class: 'primary', onclick: async () => { if (await saveTicket()) act('resolve'); } }, 'Resolve'));
+    actions.push(el('button', { onclick: () => act('unclaim') }, mine ? 'Release' : 'Release claim'));
+  }
+  if (open) actions.push(el('button', { onclick: () => { if (confirm('Mark this walk-in as left without being helped?')) act('left'); } }, 'Left / no-show'));
+  if (!open) actions.push(el('button', { onclick: () => act('reopen') }, 'Reopen'));
+
+  document.getElementById('app').replaceChildren(...[
+    el('div', { class: 'row', style: 'justify-content:space-between;margin-bottom:12px' },
+      el('h1', { style: 'margin:0' }, `Walk-in #${w.id} `, chip(w.status)),
+      el('div', { class: 'row' }, actions)),
+    w.status === 'claimed' && !mine ? el('p', { class: 'card', style: 'background:#fff3d6' }, `Claimed by ${w.claimed_by_name || w.claimed_by}.`) : null,
+    el('div', { class: 'grid' },
+      el('div', { class: 'card' },
+        el('dl', {},
+          w.netid ? [el('dt', {}, 'NetID'), el('dd', {}, el('span', { class: 'netid' }, w.netid), ' ', copyBtn(w.netid))] : null,
+          w.name ? [el('dt', {}, 'Name'), el('dd', {}, w.name)] : null,
+          w.email ? [el('dt', {}, 'Email'), el('dd', {}, el('a', { href: 'mailto:' + w.email }, w.email), ' ', copyBtn(w.email))] : null,
+          w.purged_at ? [el('dt', {}, 'Details'), el('dd', { class: 'muted' }, 'Personal details were erased by the retention rule.')] : null,
+          el('dt', {}, 'Issue'), el('dd', {}, w.issue_type || el('span', { class: 'muted' }, 'Not picked')),
+          el('dt', {}, 'Description'), el('dd', { style: 'white-space:pre-wrap' }, w.description || el('span', { class: 'muted' }, 'None')),
+          el('dt', {}, 'Location'), el('dd', {}, w.location),
+          el('dt', {}, 'Arrived'), el('dd', {}, fmtDateTime(w.created_at)),
+          w.claimed_at ? [el('dt', {}, 'Claimed'), el('dd', {}, `${fmtTime(w.claimed_at)} by ${w.claimed_by_name || w.claimed_by} (waited ${minutesSince(w.created_at, w.claimed_at)} min)`)] : null,
+          w.closed_at ? [el('dt', {}, STATUS[w.status]), el('dd', {}, `${fmtTime(w.closed_at)} by ${w.closed_by_name || w.closed_by}`)] : null)),
+      el('div', { class: 'card' },
+        el('form', { class: 'ticket', onsubmit: (e) => { e.preventDefault(); saveTicket(); } },
+          el('label', { for: 'ticket' }, 'ServiceNow ticket'),
+          el('div', { class: 'row' }, ticket, el('button', { type: 'submit' }, 'Save'), w.ticket ? copyBtn(w.ticket) : null)),
+        el('div', { style: 'margin-top:16px' },
+          el('label', {}, 'Notes'), notes,
+          el('button', { style: 'margin-top:8px', onclick: async () => { if (await act('update', { notes: notes.value })) toast('Notes saved'); } }, 'Save notes'))))].filter(Boolean));
+}
+
+async function load() {
+  try { render(await api(`/api/walkins/${id}`)); } catch (e) {
+    document.getElementById('app').replaceChildren(el('p', { class: 'card' }, e.message));
+  }
+}
+
+(async () => {
+  me = await staffNav('/dashboard');
+  load();
+})();
+</script>
+</body>
+</html>

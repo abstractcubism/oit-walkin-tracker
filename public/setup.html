@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Set up iPad · OIT Walk-ins</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  .locs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 16px 0; }
+  .locs button { padding: 22px 12px; font-size: 1.2rem; }
+</style>
+</head>
+<body>
+<div class="center">
+  <div class="card" style="max-width:720px;width:100%">
+    <h1>Set up this iPad</h1>
+    <p id="current" class="muted"></p>
+    <p>Pick the location this iPad is at. It will switch to the walk-in form and sign you out, so walk-ins can't see your account.</p>
+    <div class="locs" id="locs"></div>
+    <p class="error" id="err" role="alert"></p>
+    <div class="row">
+      <button id="unlink" class="hidden">Unlink this iPad</button>
+      <a href="/dashboard" class="small">Go to the queue instead</a>
+    </div>
+    <p class="small muted">Tip: after setup, turn on Guided Access (Settings › Accessibility) so the iPad stays on the form.</p>
+  </div>
+</div>
+<script src="/common.js"></script>
+<script>
+(async () => {
+  const err = document.getElementById('err');
+  const me = await api('/api/me');
+  if (me.device) {
+    document.getElementById('current').textContent = `This iPad is currently linked to ${me.device.location}. Picking a location below replaces that.`;
+    const u = document.getElementById('unlink');
+    u.classList.remove('hidden');
+    u.onclick = async () => {
+      if (!confirm('Unlink this iPad? The walk-in form will stop working here until it is set up again.')) return;
+      await api('/api/kiosk/unlink', {});
+      await api('/api/auth/logout', {});
+      location.href = '/login';
+    };
+  }
+  const locs = await api('/api/locations');
+  document.getElementById('locs').append(...locs.map((l) => el('button', {
+    class: 'primary',
+    onclick: async () => {
+      try { await api('/api/kiosk/setup', { location_id: l.id }); location.href = '/kiosk'; } catch (e) { err.textContent = e.message; }
+    },
+  }, l.name)));
+})();
+</script>
+</body>
+</html>

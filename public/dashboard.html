@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Queue · OIT Walk-ins</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  .stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .stat { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 18px; min-width: 130px; }
+  .stat b { display: block; font-size: 1.6rem; }
+  .who { font-weight: 700; }
+  td.actions { white-space: nowrap; text-align: right; }
+  tr.mine td:first-child { box-shadow: inset 4px 0 var(--warn); }
+  .empty { text-align: center; padding: 30px; color: var(--muted); }
+  @media (max-width: 760px) { .col-loc, .col-ticket { display: none; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="row" style="justify-content:space-between;margin-bottom:12px">
+    <h1 style="margin:0">Walk-in queue</h1>
+    <div class="row">
+      <select id="loc" aria-label="Location"><option value="">All locations</option></select>
+      <select id="view" aria-label="Show">
+        <option value="today">Today</option>
+        <option value="open">Open only</option>
+      </select>
+      <label class="small" style="margin:0;font-weight:500"><input type="checkbox" id="sound"> Sound on new walk-in</label>
+    </div>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="card" style="padding:0;overflow-x:auto">
+    <table>
+      <thead><tr><th>Status</th><th>Arrived</th><th>Who</th><th>Issue</th><th class="col-loc">Location</th><th class="col-ticket">Ticket</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <p class="small muted">Updates every 5 seconds. Walk-ins waiting more than 10 minutes are shown in red.</p>
+</main>
+<script src="/common.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const LATE_MIN = 10;
+let me;
+let seen = null;
+
+// Remember filters on this computer.
+const saved = (() => { try { return JSON.parse(localStorage.getItem('queueFilters') || '{}'); } catch { return {}; } })();
+function save() { try { localStorage.setItem('queueFilters', JSON.stringify({ loc: $('loc').value, view: $('view').value, sound: $('sound').checked })); } catch {} }
+
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.frequency.value = 880; g.gain.value = 0.15; o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.25);
+  } catch {}
+}
+
+async function act(w, action) {
+  try {
+    await api(`/api/walkins/${w.id}/${action}`, {});
+    if (action === 'claim') location.href = `/w/${w.id}`;
+    else refresh();
+  } catch (e) { toast(e.message); refresh(); }
+}
+
+function row(w) {
+  const open = w.status === 'waiting' || w.status === 'claimed';
+  const waitMin = minutesSince(w.created_at, w.claimed_at || w.closed_at);
+  const late = w.status === 'waiting' && waitMin >= LATE_MIN;
+  return el('tr', { class: w.claimed_by === me.email && w.status === 'claimed' ? 'mine' : null },
+    el('td', {}, chip(w.status), w.status === 'claimed' ? el('div', { class: 'small muted' }, w.claimed_by_name || w.claimed_by) : null),
+    el('td', {}, fmtTime(w.created_at), el('div', { class: 'small ' + (late ? 'late' : 'muted') }, w.status === 'waiting' ? `waiting ${ago(w.created_at)}` : `waited ${waitMin} min`)),
+    el('td', {}, el('div', { class: 'who' }, who(w)), !w.netid && w.email ? el('div', { class: 'small muted' }, w.email) : null),
+    el('td', {}, w.issue_type || '', w.description ? el('div', { class: 'small muted' }, w.description.length > 90 ? w.description.slice(0, 90) + '…' : w.description) : null),
+    el('td', { class: 'col-loc' }, w.location),
+    el('td', { class: 'col-ticket' }, w.ticket ? el('code', {}, w.ticket) : ''),
+    el('td', { class: 'actions' },
+      w.status === 'waiting' ? el('button', { class: 'primary', onclick: () => act(w, 'claim') }, 'Claim') : null, ' ',
+      el('a', { class: 'btn', href: `/w/${w.id}` }, open ? 'Open' : 'View')));
+}
+
+async function refresh() {
+  const q = new URLSearchParams({ view: $('view').value });
+  if ($('loc').value) q.set('location', $('loc').value);
+  const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+  q.set('since', midnight.toISOString());
+  const list = await api('/api/walkins?' + q);
+
+  // Waiting first (oldest first), then claimed, then closed (newest first).
+  const rank = { waiting: 0, claimed: 1, resolved: 2, left: 2 };
+  list.sort((a, b) => rank[a.status] - rank[b.status] || (rank[a.status] < 2 ? a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at)));
+
+  const waiting = list.filter((w) => w.status === 'waiting');
+  if (seen && $('sound').checked && waiting.some((w) => !seen.has(w.id))) beep();
+  seen = new Set(list.map((w) => w.id));
+  document.title = (waiting.length ? `(${waiting.length}) ` : '') + 'Queue · OIT Walk-ins';
+
+  const longest = waiting.length ? ago(waiting[0].created_at) : '–';
+  $('stats').replaceChildren(
+    el('div', { class: 'stat' }, el('b', {}, waiting.length), 'waiting'),
+    el('div', { class: 'stat' }, el('b', {}, list.filter((w) => w.status === 'claimed').length), 'being helped'),
+    el('div', { class: 'stat' }, el('b', {}, longest), 'longest wait'),
+    el('div', { class: 'stat' }, el('b', {}, list.filter((w) => w.status === 'resolved').length), 'resolved today'));
+  $('rows').replaceChildren(...(list.length ? list.map(row) : [el('tr', {}, el('td', { colspan: 7, class: 'empty' }, 'No walk-ins yet.'))]));
+}
+
+(async () => {
+  me = await staffNav('/dashboard');
+  const locs = await api('/api/locations');
+  $('loc').append(...locs.map((l) => el('option', { value: l.id }, l.name)));
+  if (saved.loc) $('loc').value = saved.loc;
+  if (saved.view) $('view').value = saved.view;
+  $('sound').checked = !!saved.sound;
+  ['loc', 'view', 'sound'].forEach((id) => $(id).addEventListener('change', () => { save(); refresh(); }));
+  await refresh();
+  setInterval(() => refresh().catch(() => {}), 5000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "oit-walkin-tracker",
+  "version": "0.1.0",
+  "description": "Walk-in check-in and queue for Rutgers OIT help desk and lab locations",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "dev": "DEV_LOGIN=true COOKIE_SECURE=false ADMIN_EMAILS=admin@oit.rutgers.edu node --disable-warning=ExperimentalWarning --watch src/server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+  },
+  "dependencies": {
+    "express": "^4.22.3",
+    "google-auth-library": "^11.3.4"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=22.13"
+  }
+}

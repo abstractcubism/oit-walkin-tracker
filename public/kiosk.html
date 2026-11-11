@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Walk-in check-in · OIT</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  body { background: #fff; font-size: 20px; -webkit-user-select: none; user-select: none; }
+  header { background: var(--scarlet); color: #fff; padding: 22px 32px; }
+  header h1 { margin: 0; font-size: 2rem; }
+  header p { margin: 4px 0 0; opacity: .9; }
+  form { max-width: 860px; margin: 0 auto; padding: 28px 24px 120px; }
+  section { margin-bottom: 30px; }
+  h2 { font-size: 1.3rem; }
+  input, textarea { font-size: 1.3rem; padding: 14px 16px; width: 100%; -webkit-user-select: text; user-select: text; }
+  .netid input { font-size: 1.8rem; letter-spacing: .03em; max-width: 380px; }
+  .linkish { background: none; border: none; color: var(--scarlet); padding: 10px 0; font-weight: 600; text-decoration: underline; font-size: 1.05rem; }
+  .issues { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .issues button { padding: 22px 10px; font-size: 1.1rem; border-width: 2px; min-height: 78px; }
+  .issues button[aria-pressed="true"] { border-color: var(--scarlet); background: #fde7ec; color: var(--scarlet-dark); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .submit { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid var(--line); padding: 14px 24px; display: flex; align-items: center; gap: 20px; justify-content: center; }
+  .submit button { font-size: 1.4rem; padding: 16px 48px; }
+  .submit .error { flex: 1; max-width: 520px; margin: 0; }
+  .done { min-height: 100vh; display: grid; place-items: center; text-align: center; padding: 24px; }
+  .done .big { font-size: 5rem; }
+  .staff { position: fixed; top: 26px; right: 24px; color: rgba(255,255,255,.7); font-size: .8rem; text-decoration: none; }
+  @media (max-width: 640px) { .two { grid-template-columns: 1fr; } header { padding: 18px 16px; } }
+</style>
+</head>
+<body>
+<div id="formView">
+  <header>
+    <h1>Welcome to OIT</h1>
+    <p id="loc">Check in and a consultant will be right with you.</p>
+    <a class="staff" href="/setup">Staff</a>
+  </header>
+  <form id="f" autocomplete="off" novalidate>
+    <section class="netid" id="netidBox">
+      <h2><label for="netid">Your NetID</label></h2>
+      <input id="netid" name="netid" placeholder="e.g. abc123" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text">
+      <div><button type="button" class="linkish" id="noNetid">I don't have a NetID</button></div>
+    </section>
+    <section class="hidden" id="nameBox">
+      <h2>Your name and email</h2>
+      <div class="two">
+        <div><label for="name">Name</label><input id="name" autocomplete="off"></div>
+        <div><label for="email">Email</label><input id="email" type="email" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+      </div>
+      <button type="button" class="linkish" id="haveNetid">I have a NetID</button>
+    </section>
+    <section>
+      <h2>What do you need help with?</h2>
+      <div class="issues" id="issues" role="group" aria-label="Common issues"></div>
+    </section>
+    <section>
+      <h2><label for="desc">Anything else we should know? <span class="muted" style="font-weight:400">(optional)</span></label></h2>
+      <textarea id="desc" rows="3" maxlength="1000" placeholder="Briefly describe the problem"></textarea>
+    </section>
+    <div class="submit">
+      <p class="error" id="err" role="alert"></p>
+      <button class="primary" type="submit" id="go">Check in</button>
+    </div>
+  </form>
+</div>
+<div id="doneView" class="done hidden">
+  <div>
+    <div class="big">✅</div>
+    <h1>You're checked in!</h1>
+    <p style="font-size:1.3rem">A consultant will be with you shortly. Please have a seat.</p>
+  </div>
+</div>
+<div id="offView" class="done hidden">
+  <div><h1>This iPad isn't set up</h1><p>A consultant needs to sign in and choose a location.</p><a class="btn primary" href="/setup">Set up</a></div>
+</div>
+
+<script src="/common.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let selected = null;
+let idleTimer = null;
+const IDLE_MS = 90 * 1000; // clear a half-filled form after 90s untouched
+const DONE_MS = 6 * 1000;  // how long the thank-you screen shows
+
+function useNetid(on) {
+  $('netidBox').classList.toggle('hidden', !on);
+  $('nameBox').classList.toggle('hidden', on);
+  (on ? $('netid') : $('name')).focus();
+}
+$('noNetid').onclick = () => useNetid(false);
+$('haveNetid').onclick = () => useNetid(true);
+
+function reset() {
+  $('f').reset();
+  selected = null;
+  document.querySelectorAll('#issues button').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+  $('err').textContent = '';
+  useNetid(true);
+  $('netid').blur();
+  window.scrollTo(0, 0);
+}
+
+function poke() {
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(reset, IDLE_MS);
+}
+['input', 'click', 'touchstart'].forEach((ev) => document.addEventListener(ev, poke, { passive: true }));
+
+async function load() {
+  try {
+    const info = await api('/api/kiosk/info');
+    $('loc').textContent = `${info.location} · Check in and a consultant will be right with you.`;
+    const box = $('issues');
+    box.replaceChildren(...info.issues.map((label) => el('button', {
+      type: 'button', 'aria-pressed': 'false',
+      onclick: (e) => {
+        const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+        box.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+        e.currentTarget.setAttribute('aria-pressed', String(on));
+        selected = on ? label : null;
+      },
+    }, label)));
+  } catch (e) {
+    if (e.status === 401) { $('formView').classList.add('hidden'); $('offView').classList.remove('hidden'); }
+  }
+}
+
+$('f').onsubmit = async (e) => {
+  e.preventDefault();
+  const usingNetid = !$('netidBox').classList.contains('hidden');
+  const body = {
+    netid: usingNetid ? $('netid').value.trim() : '',
+    name: usingNetid ? '' : $('name').value.trim(),
+    email: usingNetid ? '' : $('email').value.trim(),
+    issue_type: selected || '',
+    description: $('desc').value.trim(),
+  };
+  $('go').disabled = true;
+  try {
+    await api('/api/kiosk/walkins', body);
+    document.activeElement && document.activeElement.blur();
+    $('formView').classList.add('hidden');
+    $('doneView').classList.remove('hidden');
+    setTimeout(() => {
+      reset();
+      $('doneView').classList.add('hidden');
+      $('formView').classList.remove('hidden');
+    }, DONE_MS);
+  } catch (x) {
+    if (x.status === 401) { $('formView').classList.add('hidden'); $('offView').classList.remove('hidden'); }
+    $('err').textContent = x.message;
+  } finally {
+    $('go').disabled = false;
+  }
+};
+
+load();
+// Every 10 min pick up new issue buttons (and notice if the iPad was unlinked), but never mid-entry.
+setInterval(() => {
+  const busy = selected || ['netid', 'name', 'email', 'desc'].some((id) => $(id).value);
+  if (!busy) load();
+}, 10 * 60 * 1000);
+</script>
+</body>
+</html>
