@@ -86,6 +86,8 @@ test('full walk-in flow', async () => {
   assert.equal((await ipad('POST', '/api/kiosk/walkins', { netid: 'not a netid!', issue_type: 'Wi-Fi' })).status, 400);
   assert.equal((await ipad('POST', '/api/kiosk/walkins', { name: 'Pat', email: 'bad', issue_type: 'Wi-Fi' })).status, 400);
   assert.equal((await ipad('POST', '/api/kiosk/walkins', { netid: 'abc123' })).status, 400, 'needs an issue');
+  assert.equal((await ipad('POST', '/api/kiosk/walkins', { netid: 'abc123', description: 'help' })).status, 400, 'too short without a button');
+  assert.equal((await ipad('POST', '/api/kiosk/walkins', { netid: 'abc123', issue_type: 'Made up' })).status, 400, 'unknown button');
 
   // Submit two walk-ins.
   const w1 = (await ipad('POST', '/api/kiosk/walkins', { netid: 'ABC123', issue_type: 'Duo / 2FA', description: 'New phone <b>' })).body.id;

@@ -7,12 +7,13 @@
 <link rel="stylesheet" href="/app.css">
 <style>
   .locs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 16px 0; }
-  .locs button { padding: 22px 12px; font-size: 1.2rem; }
+  .locs button { padding: 26px 12px; font-size: 1.2rem; border-radius: 14px; flex-direction: column; }
+  .locs button::before { content: "📍"; font-size: 1.6rem; }
 </style>
 </head>
-<body>
+<body class="auth-bg">
 <div class="center">
-  <div class="card" style="max-width:720px;width:100%">
+  <div class="card" style="max-width:720px;width:100%;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
     <h1>Set up this iPad</h1>
     <p id="current" class="muted"></p>
     <p>Pick the location this iPad is at. It will switch to the walk-in form and sign you out, so walk-ins can't see your account.</p>

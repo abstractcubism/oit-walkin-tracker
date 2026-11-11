@@ -49,10 +49,12 @@ async function staffNav(active) {
   const me = await api('/api/me');
   const links = [['/dashboard', 'Queue'], ['/reports', 'Reports']];
   if (me.role === 'admin') links.push(['/admin', 'Admin']);
+  const display = me.name || me.email.split('@')[0];
+  const initials = display.split(/[\s.]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
   const bar = el('nav', { class: 'topbar' },
-    el('span', { class: 'brand' }, 'OIT Walk-ins'),
+    el('span', { class: 'brand' }, el('span', { class: 'mark', 'aria-hidden': 'true' }, 'R'), el('span', { class: 'hide-sm' }, 'OIT Walk-ins')),
     links.map(([href, label]) => el('a', { href, class: href === active ? 'active' : null }, label)),
-    el('span', { class: 'hide-sm small' }, me.name || me.email),
+    el('span', { class: 'me', title: me.email }, el('span', { class: 'avatar', 'aria-hidden': 'true' }, initials), el('span', { class: 'hide-sm' }, display)),
     el('button', { onclick: async () => { await api('/api/auth/logout', {}); location.href = '/login'; } }, 'Sign out'));
   document.body.prepend(bar);
   return me;

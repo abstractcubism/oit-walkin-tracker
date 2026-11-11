@@ -6,31 +6,34 @@
 <title>Queue · OIT Walk-ins</title>
 <link rel="stylesheet" href="/app.css">
 <style>
-  .stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
-  .stat { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 18px; min-width: 130px; }
-  .stat b { display: block; font-size: 1.6rem; }
   .who { font-weight: 700; }
+  tr.waiting { background: #fffafb; }
+  tr.waiting.is-late { background: var(--scarlet-tint); }
+  tr.closed td { color: var(--muted); }
+  tr.closed .who { font-weight: 600; }
+  .filters label { margin: 0; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
   td.actions { white-space: nowrap; text-align: right; }
-  tr.mine td:first-child { box-shadow: inset 4px 0 var(--warn); }
-  .empty { text-align: center; padding: 30px; color: var(--muted); }
+  tr.mine td:first-child { box-shadow: inset 4px 0 #e0a100; }
+  .empty { text-align: center; padding: 48px 20px; color: var(--muted); }
+  .empty .big { font-size: 2.4rem; display: block; margin-bottom: 8px; }
   @media (max-width: 760px) { .col-loc, .col-ticket { display: none; } }
 </style>
 </head>
 <body>
 <main>
-  <div class="row" style="justify-content:space-between;margin-bottom:12px">
-    <h1 style="margin:0">Walk-in queue</h1>
-    <div class="row">
+  <div class="page-h">
+    <h1>Walk-in queue</h1>
+    <div class="row filters">
       <select id="loc" aria-label="Location"><option value="">All locations</option></select>
       <select id="view" aria-label="Show">
         <option value="today">Today</option>
         <option value="open">Open only</option>
       </select>
-      <label class="small" style="margin:0;font-weight:500"><input type="checkbox" id="sound"> Sound on new walk-in</label>
+      <label class="small"><input type="checkbox" id="sound"> Sound on new walk-in</label>
     </div>
   </div>
   <div class="stats" id="stats"></div>
-  <div class="card" style="padding:0;overflow-x:auto">
+  <div class="card flush" style="overflow-x:auto">
     <table>
       <thead><tr><th>Status</th><th>Arrived</th><th>Who</th><th>Issue</th><th class="col-loc">Location</th><th class="col-ticket">Ticket</th><th></th></tr></thead>
       <tbody id="rows"></tbody>
@@ -70,7 +73,8 @@ function row(w) {
   const open = w.status === 'waiting' || w.status === 'claimed';
   const waitMin = minutesSince(w.created_at, w.claimed_at || w.closed_at);
   const late = w.status === 'waiting' && waitMin >= LATE_MIN;
-  return el('tr', { class: w.claimed_by === me.email && w.status === 'claimed' ? 'mine' : null },
+  const cls = [w.status === 'waiting' ? 'waiting' : '', late ? 'is-late' : '', !open ? 'closed' : '', w.claimed_by === me.email && w.status === 'claimed' ? 'mine' : ''].join(' ');
+  return el('tr', { class: cls },
     el('td', {}, chip(w.status), w.status === 'claimed' ? el('div', { class: 'small muted' }, w.claimed_by_name || w.claimed_by) : null),
     el('td', {}, fmtTime(w.created_at), el('div', { class: 'small ' + (late ? 'late' : 'muted') }, w.status === 'waiting' ? `waiting ${ago(w.created_at)}` : `waited ${waitMin} min`)),
     el('td', {}, el('div', { class: 'who' }, who(w)), !w.netid && w.email ? el('div', { class: 'small muted' }, w.email) : null),
@@ -100,11 +104,11 @@ async function refresh() {
 
   const longest = waiting.length ? ago(waiting[0].created_at) : '–';
   $('stats').replaceChildren(
-    el('div', { class: 'stat' }, el('b', {}, waiting.length), 'waiting'),
-    el('div', { class: 'stat' }, el('b', {}, list.filter((w) => w.status === 'claimed').length), 'being helped'),
-    el('div', { class: 'stat' }, el('b', {}, longest), 'longest wait'),
-    el('div', { class: 'stat' }, el('b', {}, list.filter((w) => w.status === 'resolved').length), 'resolved today'));
-  $('rows').replaceChildren(...(list.length ? list.map(row) : [el('tr', {}, el('td', { colspan: 7, class: 'empty' }, 'No walk-ins yet.'))]));
+    el('div', { class: 'stat red' }, el('b', {}, waiting.length), 'waiting'),
+    el('div', { class: 'stat amber' }, el('b', {}, list.filter((w) => w.status === 'claimed').length), 'being helped'),
+    el('div', { class: 'stat gray' }, el('b', {}, longest), 'longest wait'),
+    el('div', { class: 'stat green' }, el('b', {}, list.filter((w) => w.status === 'resolved').length), 'resolved today'));
+  $('rows').replaceChildren(...(list.length ? list.map(row) : [el('tr', {}, el('td', { colspan: 7, class: 'empty' }, el('span', { class: 'big' }, '☕'), 'No walk-ins yet. Nice and quiet.'))]));
 }
 
 (async () => {

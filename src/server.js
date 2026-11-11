@@ -129,10 +129,12 @@ app.get('/api/kiosk/info', auth.requireDevice, (req, res) => {
   db.prepare('UPDATE devices SET last_seen = ? WHERE id = ?').run(now(), req.device.id);
   res.json({
     location: req.device.location_name,
+    minDescription: MIN_DESCRIPTION,
     issues: db.prepare('SELECT label FROM issue_types WHERE active = 1 ORDER BY sort, label').all().map((r) => r.label),
   });
 });
 
+const MIN_DESCRIPTION = 10; // characters, when no issue button is picked
 const NETID_RE = /^[a-z]{2,8}[0-9]{1,6}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -149,7 +151,13 @@ app.post('/api/kiosk/walkins', auth.requireDevice, (req, res) => {
     if (!name) return bad(res, 'Enter your NetID, or your name and email.');
     if (!EMAIL_RE.test(email)) return bad(res, 'Enter a valid email address.');
   }
-  if (!issueType && !description) return bad(res, 'Pick an issue or describe it briefly.');
+  // Either a quick-tap issue, or a real description (a few words, not just "help").
+  if (issueType) {
+    const known = db.prepare('SELECT 1 FROM issue_types WHERE label = ? AND active = 1').get(issueType);
+    if (!known) return bad(res, 'Please pick one of the issue buttons.');
+  } else if (description.length < MIN_DESCRIPTION) {
+    return bad(res, 'Tap the issue that fits best, or tell us a bit more about what you need.');
+  }
 
   const r = db.prepare(`INSERT INTO walkins (location_id, device_id, netid, name, email, issue_type, description, slack_status)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)

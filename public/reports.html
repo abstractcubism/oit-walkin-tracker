@@ -6,21 +6,18 @@
 <title>Reports · OIT Walk-ins</title>
 <link rel="stylesheet" href="/app.css">
 <style>
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
-  .stat { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px; }
-  .stat b { display: block; font-size: 1.7rem; }
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .bar { display: grid; grid-template-columns: 150px 1fr 40px; gap: 10px; align-items: center; margin: 6px 0; font-size: .9rem; }
-  .bar .track { background: #f0f0f2; border-radius: 4px; height: 14px; }
-  .bar .fill { background: var(--scarlet); height: 100%; border-radius: 4px; }
+  .bar .track { background: #f2f1ef; border-radius: 999px; height: 12px; overflow: hidden; }
+  .bar .fill { background: linear-gradient(90deg, #e0003f, #a3002a); height: 100%; border-radius: 999px; }
   .bar span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
   @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } .bar { grid-template-columns: 100px 1fr 34px; } }
 </style>
 </head>
 <body>
 <main>
-  <div class="row" style="justify-content:space-between;margin-bottom:16px">
-    <h1 style="margin:0">Reports</h1>
+  <div class="page-h">
+    <h1>Reports</h1>
     <form class="row" id="f">
       <label class="small" style="margin:0">From <input type="date" id="from"></label>
       <label class="small" style="margin:0">To <input type="date" id="to"></label>
@@ -59,11 +56,11 @@ async function load() {
   const r = await api('/api/reports?' + q);
   const t = r.totals;
   $('stats').replaceChildren(
-    el('div', { class: 'stat' }, el('b', {}, t.total || 0), 'walk-ins'),
-    el('div', { class: 'stat' }, el('b', {}, t.resolved || 0), 'resolved'),
-    el('div', { class: 'stat' }, el('b', {}, t.left_count || 0), 'left / no-show'),
-    el('div', { class: 'stat' }, el('b', {}, t.avg_wait_min != null ? t.avg_wait_min + ' min' : '–'), 'avg. wait to claim'),
-    el('div', { class: 'stat' }, el('b', {}, t.avg_handle_min != null ? t.avg_handle_min + ' min' : '–'), 'avg. time helping'));
+    el('div', { class: 'stat red' }, el('b', {}, t.total || 0), 'walk-ins'),
+    el('div', { class: 'stat green' }, el('b', {}, t.resolved || 0), 'resolved'),
+    el('div', { class: 'stat gray' }, el('b', {}, t.left_count || 0), 'left / no-show'),
+    el('div', { class: 'stat amber' }, el('b', {}, t.avg_wait_min != null ? t.avg_wait_min + ' min' : '–'), 'avg. wait to claim'),
+    el('div', { class: 'stat amber' }, el('b', {}, t.avg_handle_min != null ? t.avg_handle_min + ' min' : '–'), 'avg. time helping'));
   bars('byLocation', r.byLocation, (x) => x.avg_wait_min != null ? `avg wait ${x.avg_wait_min} min` : null);
   bars('byIssue', r.byIssue);
   bars('byConsultant', r.byConsultant);

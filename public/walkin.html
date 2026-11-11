@@ -9,7 +9,9 @@
   dl { display: grid; grid-template-columns: 140px 1fr; gap: 10px 16px; margin: 0; }
   dt { color: var(--muted); font-weight: 600; }
   dd { margin: 0; }
-  .netid { font-size: 1.6rem; font-weight: 700; }
+  .netid { font-size: 1.8rem; font-weight: 800; letter-spacing: .01em; }
+  .back { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-weight: 600; margin-bottom: 14px; }
+  .notice { background: var(--warn-tint); color: var(--warn); font-weight: 600; }
   .ticket input { font-size: 1.2rem; width: 220px; text-transform: uppercase; }
   .grid { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; align-items: start; }
   @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } dl { grid-template-columns: 110px 1fr; } }
@@ -17,7 +19,7 @@
 </head>
 <body>
 <main>
-  <p><a href="/dashboard">← Back to queue</a></p>
+  <a class="back" href="/dashboard">← Back to queue</a>
   <div id="app"></div>
 </main>
 <script src="/common.js"></script>
@@ -67,10 +69,10 @@ function render(w) {
   if (!open) actions.push(el('button', { onclick: () => act('reopen') }, 'Reopen'));
 
   document.getElementById('app').replaceChildren(...[
-    el('div', { class: 'row', style: 'justify-content:space-between;margin-bottom:12px' },
-      el('h1', { style: 'margin:0' }, `Walk-in #${w.id} `, chip(w.status)),
+    el('div', { class: 'page-h' },
+      el('h1', { class: 'row' }, `Walk-in #${w.id}`, chip(w.status)),
       el('div', { class: 'row' }, actions)),
-    w.status === 'claimed' && !mine ? el('p', { class: 'card', style: 'background:#fff3d6' }, `Claimed by ${w.claimed_by_name || w.claimed_by}.`) : null,
+    w.status === 'claimed' && !mine ? el('p', { class: 'card notice' }, `Claimed by ${w.claimed_by_name || w.claimed_by}.`) : null,
     el('div', { class: 'grid' },
       el('div', { class: 'card' },
         el('dl', {},
