@@ -60,6 +60,11 @@ test('full walk-in flow', async () => {
   const admin = client();
   assert.equal((await admin('POST', '/api/auth/dev', { email: 'boss@oit.rutgers.edu' })).status, 200);
 
+  // Test-mode "Skip" signs in as a built-in admin.
+  const skipper = client();
+  assert.equal((await skipper('POST', '/api/auth/dev', { skip: true })).status, 200);
+  assert.equal((await skipper('GET', '/api/me')).body.role, 'admin');
+
   // Students share @scarletmail, so Google-domain users are refused until added.
   const alice = client();
   assert.equal((await alice('POST', '/api/auth/dev', { email: 'alice1@scarletmail.rutgers.edu' })).status, 403);

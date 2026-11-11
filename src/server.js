@@ -85,6 +85,14 @@ app.post('/api/auth/google', async (req, res) => {
 
 if (config.devLogin) {
   app.post('/api/auth/dev', (req, res) => {
+    if (req.body.skip) {
+      // "Skip" button: sign in as a built-in test admin without needing to be on the list.
+      const email = 'test-admin@oit.rutgers.edu';
+      db.prepare(`INSERT INTO users (email, name, role) VALUES (?, 'Test Admin', 'admin')
+                  ON CONFLICT(email) DO UPDATE SET role='admin', active=1`).run(email);
+      auth.startSession(res, email);
+      return res.json({ ok: true });
+    }
     const { user, error } = auth.authorize(req.body.email, null, auth.providerFor(req.body.email) || 'google');
     if (error) return bad(res, error, 403);
     auth.startSession(res, user.email);

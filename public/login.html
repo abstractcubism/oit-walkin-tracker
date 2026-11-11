@@ -63,7 +63,10 @@
       el('form', { onsubmit: async (e) => {
         e.preventDefault();
         try { await api('/api/auth/dev', { email: input.value }); location.href = next; } catch (x) { err.textContent = x.message; }
-      } }, input, el('button', { class: 'btn', type: 'submit' }, 'Test sign-in')));
+      } }, input, el('button', { class: 'btn', type: 'submit' }, 'Test sign-in')),
+      el('button', { class: 'btn primary', type: 'button', onclick: async () => {
+        try { await api('/api/auth/dev', { skip: true }); location.href = next; } catch (x) { err.textContent = x.message; }
+      } }, 'Skip, sign in as test admin'));
   }
   if (!cfg.microsoft && !cfg.google && !cfg.devLogin) {
     box.append(el('p', {}, 'No sign-in method is set up yet. Add Google or Microsoft keys to the server settings.'));
