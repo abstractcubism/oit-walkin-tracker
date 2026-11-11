@@ -11,7 +11,7 @@ There's also a **Reports** page (volume by location, issue, hour and day, averag
 
 ## Stack
 
-Node.js 22.13+ and Express, with SQLite through Node's built-in `node:sqlite` (one file, no database server). The pages are plain HTML and JS, so there's no build step. The only dependencies are `express` and `google-auth-library`.
+Node.js 22.13+ and Express, with SQLite through Node's built-in `node:sqlite` (one file, no database server). The pages are plain HTML and JS, so there's no build step. The only dependencies are `express` and `google-auth-library`. Icons are [Lucide](https://lucide.dev) (ISC license), inlined in `public/icons.js`. The IBM Plex font loads from Google Fonts, and the pages fall back to system fonts if it can't be reached.
 
 ## Run it locally
 

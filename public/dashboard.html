@@ -108,7 +108,7 @@ async function refresh() {
     el('div', { class: 'stat amber' }, el('b', {}, list.filter((w) => w.status === 'claimed').length), 'being helped'),
     el('div', { class: 'stat gray' }, el('b', {}, longest), 'longest wait'),
     el('div', { class: 'stat green' }, el('b', {}, list.filter((w) => w.status === 'resolved').length), 'resolved today'));
-  $('rows').replaceChildren(...(list.length ? list.map(row) : [el('tr', {}, el('td', { colspan: 7, class: 'empty' }, el('span', { class: 'big' }, '☕'), 'No walk-ins yet. Nice and quiet.'))]));
+  $('rows').replaceChildren(...(list.length ? list.map(row) : [el('tr', {}, el('td', { colspan: 7, class: 'empty' }, 'No walk-ins yet. Nice and quiet.'))]));
 }
 
 (async () => {

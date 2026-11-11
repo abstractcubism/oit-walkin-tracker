@@ -2,298 +2,318 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#cc0033">
-<title>Walk-in check-in · OIT</title>
-<link rel="stylesheet" href="/app.css">
+<meta name="theme-color" content="#f4f1ec">
+<title>Check in · OIT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  body { background: var(--bg-warm); font-size: 19px; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-
-  /* header */
-  .hero { background: linear-gradient(135deg, #d6003a 0%, #a3002a 60%, #7d0020 100%); color: #fff; padding: 28px 40px 70px; position: relative; overflow: hidden; }
-  .hero::after { content: ""; position: absolute; right: -80px; top: -120px; width: 360px; height: 360px; border-radius: 50%; background: rgba(255,255,255,.07); }
-  .hero-top { display: flex; align-items: center; gap: 14px; position: relative; z-index: 1; }
-  .mark { width: 44px; height: 44px; border-radius: 12px; background: #fff; color: var(--scarlet); display: grid; place-items: center; font-weight: 800; font-size: 1.3rem; }
-  .hero-top .org { font-weight: 700; letter-spacing: .02em; }
-  .hero-top .clock { margin-left: auto; font-variant-numeric: tabular-nums; opacity: .9; font-weight: 600; }
-  .hero h1 { font-size: 2.4rem; margin: 26px 0 6px; position: relative; z-index: 1; letter-spacing: -.01em; }
-  .hero p { margin: 0; opacity: .92; font-size: 1.15rem; position: relative; z-index: 1; }
-  .loc-pill { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,.18); padding: 4px 14px; border-radius: 999px; font-weight: 600; font-size: .95rem; margin-bottom: 10px; }
-  .loc-pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #7dffa8; box-shadow: 0 0 0 3px rgba(125,255,168,.25); }
-  .staff { position: absolute; bottom: 14px; right: 20px; color: rgba(255,255,255,.45); font-size: .75rem; text-decoration: none; z-index: 1; padding: 8px; }
-
-  /* steps */
-  form { max-width: 900px; margin: -44px auto 0; padding: 0 24px 140px; position: relative; z-index: 2; }
-  .step { background: #fff; border-radius: 20px; padding: 26px 28px; margin-bottom: 18px; box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06); transition: box-shadow .2s; }
-  .step.attention { box-shadow: 0 0 0 3px var(--scarlet), 0 8px 24px rgba(204,0,51,.15); animation: nudge .35s; }
-  @keyframes nudge { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
-  .step-h { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
-  .step-h .n { width: 34px; height: 34px; border-radius: 50%; background: var(--scarlet-tint); color: var(--scarlet); font-weight: 800; display: grid; place-items: center; flex: none; transition: background .2s, color .2s; }
-  .step.done .step-h .n { background: var(--ok); color: #fff; }
-  .step-h h2 { margin: 0; font-size: 1.3rem; }
-  .step-h .tag { margin-left: auto; font-size: .85rem; font-weight: 600; color: var(--muted); }
-  .step-h .tag.req { color: var(--scarlet); }
-
-  .seg { display: inline-flex; background: var(--bg); border-radius: 12px; padding: 4px; margin-bottom: 16px; }
-  .seg button { border: 0; background: transparent; padding: 10px 18px; font-size: 1rem; border-radius: 9px; color: var(--muted); }
-  .seg button[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
-
-  input.big, textarea.big { font-size: 1.3rem; padding: 16px 18px; width: 100%; border: 2px solid var(--line); border-radius: 14px; -webkit-user-select: text; user-select: text; transition: border-color .15s, box-shadow .15s; }
-  input.big:focus, textarea.big:focus { outline: none; border-color: var(--scarlet); box-shadow: 0 0 0 4px var(--scarlet-tint); }
-  #netid { font-size: 1.9rem; letter-spacing: .04em; max-width: 400px; font-weight: 600; }
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .field label { font-size: .95rem; color: var(--muted); }
-
-  .issues { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
-  .tile { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 112px; padding: 16px 10px;
-    border: 2px solid var(--line); border-radius: 16px; background: #fff; font-size: 1.05rem; font-weight: 600; text-align: center; transition: transform .1s, border-color .15s, background .15s; }
-  .tile:active { transform: scale(.97); }
-  .tile .ico { font-size: 2rem; line-height: 1; }
-  .tile[aria-pressed="true"] { border-color: var(--scarlet); background: var(--scarlet-tint); color: var(--scarlet-dark); }
-  .tile[aria-pressed="true"]::after { content: "✓"; position: absolute; top: 8px; right: 10px; width: 24px; height: 24px; border-radius: 50%; background: var(--scarlet); color: #fff; font-size: .8rem; display: grid; place-items: center; }
-  .tile.other { border-style: dashed; }
-
-  .hint { font-size: .9rem; color: var(--muted); margin: 8px 2px 0; display: flex; justify-content: space-between; }
-  .hint .count.ok { color: var(--ok); }
-
-  .bar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,.92); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border-top: 1px solid var(--line); padding: 16px 24px; }
-  .bar-in { max-width: 900px; margin: 0 auto; display: flex; align-items: center; gap: 20px; }
-  .bar .error { flex: 1; margin: 0; font-size: 1.05rem; }
-  .bar .status { flex: 1; margin: 0; color: var(--muted); font-size: 1rem; }
-  .bar button { font-size: 1.35rem; padding: 18px 52px; border-radius: 16px; box-shadow: 0 6px 16px rgba(204,0,51,.25); }
-
-  /* done + not set up */
-  .full { min-height: 100vh; display: grid; place-items: center; text-align: center; padding: 24px; background: var(--bg-warm); }
-  .check { width: 128px; height: 128px; margin: 0 auto 24px; border-radius: 50%; background: var(--ok); display: grid; place-items: center; animation: pop .45s cubic-bezier(.2,1.6,.4,1); box-shadow: 0 12px 32px rgba(26,127,55,.3); }
-  .check svg { width: 64px; height: 64px; stroke: #fff; stroke-width: 4; fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 60; stroke-dashoffset: 60; animation: draw .4s .25s forwards; }
-  @keyframes pop { from { transform: scale(.3); opacity: 0; } }
-  @keyframes draw { to { stroke-dashoffset: 0; } }
-  .full h1 { font-size: 2.4rem; }
-  .full p { font-size: 1.3rem; color: var(--muted); max-width: 560px; margin: 0 auto; }
-  .countdown { width: 220px; height: 6px; border-radius: 3px; background: var(--line); margin: 32px auto 0; overflow: hidden; }
-  .countdown div { height: 100%; background: var(--ok); width: 100%; }
-  .countdown.run div { transition: width linear; width: 0; }
-
-  @media (max-width: 700px) {
-    .two { grid-template-columns: 1fr; }
-    .hero { padding: 20px 16px 64px; }
-    .hero h1 { font-size: 1.8rem; }
-    form { padding: 0 16px 150px; }
-    .step { padding: 20px 16px; }
-    .issues { grid-template-columns: repeat(2, 1fr); }
-    .bar-in { flex-direction: column; align-items: stretch; gap: 8px; }
-    .bar button { width: 100%; }
+  :root {
+    --paper: #f4f1ec;
+    --ink: #141414;
+    --soft: #6b665f;
+    --rule: #d6d0c6;
+    --scarlet: #cc0033;
+    --sans: "IBM Plex Sans", -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { background: var(--paper); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+  input, textarea { font: inherit; color: inherit; -webkit-user-select: text; user-select: text; }
+  .hidden { display: none !important; }
+  .icon { width: 1em; height: 1em; flex: none; }
+
+  /* Whole screen is one fixed grid: header, then the two halves. Nothing scrolls. */
+  .screen { height: 100vh; height: 100dvh; display: grid; grid-template-rows: auto 1fr;
+    padding: max(20px, env(safe-area-inset-top)) clamp(24px, 4vw, 52px) max(24px, env(safe-area-inset-bottom)); }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 14px; border-bottom: 2px solid var(--ink); }
+  .word { font-weight: 700; font-size: 1.05rem; letter-spacing: .01em; }
+  .word span { color: var(--scarlet); }
+  .clock { font-family: var(--mono); font-size: 1.05rem; color: var(--soft); }
+  .staff { color: var(--rule); font-size: .75rem; text-decoration: none; margin-left: 18px; padding: 6px; }
+
+  main { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); min-height: 0; }
+  .you { padding: clamp(18px, 3.5vh, 36px) clamp(24px, 3.5vw, 48px) 0 0; border-right: 1px solid var(--rule); display: flex; flex-direction: column; min-height: 0; }
+  .what { padding: clamp(18px, 3.5vh, 36px) 0 0 clamp(24px, 3.5vw, 48px); display: flex; flex-direction: column; min-height: 0; }
+
+  .label { font-size: .82rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--soft); display: flex; justify-content: space-between; align-items: baseline; }
+  .label .req { color: var(--scarlet); letter-spacing: .04em; }
+  .label .soft { color: #a39c91; letter-spacing: .04em; text-transform: none; font-weight: 500; }
+
+  /* NetID: typed straight onto the page, like filling in a ticket */
+  .netid { width: 100%; border: 0; border-bottom: 3px solid var(--ink); background: transparent; border-radius: 0;
+    font-family: var(--mono); font-weight: 600; font-size: clamp(2.4rem, 7vh, 3.6rem); letter-spacing: .02em; padding: 6px 0 8px; margin-top: 8px; outline: none; }
+  .netid::placeholder { color: #c9c2b6; }
+  .netid:focus { border-bottom-color: var(--scarlet); }
+  .line { width: 100%; border: 0; border-bottom: 2px solid var(--ink); background: transparent; border-radius: 0; font-size: 1.35rem; padding: 6px 0; margin: 4px 0 14px; outline: none; }
+  .line:focus { border-bottom-color: var(--scarlet); }
+  .swap { margin-top: 12px; font-size: 1rem; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; align-self: flex-start; padding: 6px 0; }
+
+  .more { flex: 1; display: flex; flex-direction: column; padding-top: clamp(20px, 4vh, 40px); min-height: 0; }
+  .more textarea { width: 100%; flex: 1; min-height: 72px; resize: none; border: 1px solid var(--rule); background: #fbf9f6; border-radius: 4px;
+    padding: 12px 14px; font-size: 1.15rem; line-height: 1.35; margin-top: 8px; outline: none; }
+  .more textarea:focus { border-color: var(--ink); }
+  .more.needed textarea { border-color: var(--scarlet); }
+  .count { font-family: var(--mono); font-size: .8rem; color: var(--scarlet); }
+
+  .go { margin-top: 16px; width: 100%; display: flex; align-items: center; justify-content: space-between; padding: clamp(16px, 2.6vh, 22px) 24px;
+    background: #cfc8bd; color: #fff; font-size: 1.4rem; font-weight: 600; border-radius: 4px; transition: background .2s; }
+  .go .icon { width: 28px; height: 28px; transition: transform .2s; }
+  .go.ready { background: var(--scarlet); }
+  .go.ready:active .icon { transform: translateX(6px); }
+  .msg { min-height: 1.4em; margin-top: 10px; font-size: 1rem; color: var(--scarlet); font-weight: 500; }
+
+  /* Issues: a printed menu rather than a wall of cards */
+  .issues { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; flex: 1; min-height: 0; border-top: 1px solid var(--rule); }
+  .issue { display: flex; align-items: center; gap: 14px; padding: 0 14px; text-align: left; font-size: clamp(1.05rem, 2.5vh, 1.3rem); font-weight: 500;
+    border-bottom: 1px solid var(--rule); min-height: 56px; position: relative; }
+  .issue:nth-child(odd) { border-right: 1px solid var(--rule); }
+  .issue .icon { width: 26px; height: 26px; color: var(--soft); }
+  .issue .tick { margin-left: auto; opacity: 0; color: #fff; }
+  .issue:active { background: #ebe6de; }
+  .issue[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .issue[aria-pressed="true"] .icon { color: #fff; }
+  .issue[aria-pressed="true"] .tick { opacity: 1; }
+  .issue.other { color: var(--soft); font-style: italic; }
+  .issue.other[aria-pressed="true"] { color: #fff; }
+
+  /* Nudge whatever is missing */
+  .shake { animation: shake .3s; }
+  @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
+  /* Confirmation: a stub, like the one you'd tear off at a counter */
+  .done { position: fixed; inset: 0; background: var(--paper); display: grid; place-items: center; z-index: 10; }
+  .stub { width: min(520px, 86vw); background: #fff; border: 1px solid var(--rule); padding: 40px 44px 34px; position: relative; animation: rise .35s ease-out; }
+  .stub::before, .stub::after { content: ""; position: absolute; left: -1px; right: -1px; height: 12px;
+    background: radial-gradient(circle at 8px 0, var(--paper) 7px, transparent 7.5px) 0 0 / 16px 12px repeat-x; }
+  .stub::before { top: -1px; }
+  .stub::after { bottom: -1px; transform: rotate(180deg); }
+  @keyframes rise { from { transform: translateY(24px); opacity: 0; } }
+  .stub .no { font-family: var(--mono); font-size: 1rem; color: var(--soft); display: flex; justify-content: space-between; border-bottom: 1px dashed var(--rule); padding-bottom: 16px; }
+  .stub h1 { font-size: 2.5rem; line-height: 1.1; margin: 22px 0 10px; letter-spacing: -.01em; }
+  .stub p { font-size: 1.2rem; color: var(--soft); }
+  .stub .who { font-family: var(--mono); font-weight: 600; color: var(--ink); }
+  .stub .timer { height: 3px; background: var(--rule); margin-top: 28px; }
+  .stub .timer div { height: 100%; width: 100%; background: var(--scarlet); }
+  .stub .timer.run div { width: 0; transition-property: width; transition-timing-function: linear; }
+
+  .off { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: var(--paper); }
+  .off h1 { font-size: 2rem; margin-bottom: 10px; }
+  .off a { display: inline-block; margin-top: 20px; background: var(--ink); color: #fff; padding: 14px 28px; text-decoration: none; border-radius: 4px; font-weight: 600; }
+
+  /* Portrait iPad: stack the halves */
+  @media (orientation: portrait) {
+    main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .you { border-right: 0; padding-right: 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 32px; align-items: start; }
+    .you .who { grid-column: 1 / -1; }
+    .you .more { grid-column: 1; }
+    .you .more textarea { flex: none; height: 110px; }
+    .you .side { grid-column: 2; padding-top: 18px; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+    .what { padding-left: 0; padding-top: 20px; }
+  }
+  @media (orientation: landscape) { .you .side { display: contents; } }
 </style>
 </head>
 <body>
-<div id="formView">
-  <header class="hero">
-    <div class="hero-top"><div class="mark" aria-hidden="true">R</div><span class="org">Office of Information Technology</span><span class="clock" id="clock"></span></div>
-    <h1>Welcome! Let's get you checked in.</h1>
-    <div class="loc-pill" id="loc">OIT</div>
-    <p>It takes about 20 seconds. A consultant will be right with you.</p>
-    <a class="staff" href="/setup">Staff</a>
+<div class="screen" id="formView">
+  <header>
+    <div class="word"><span>Rutgers</span> OIT</div>
+    <div><span class="clock" id="clock"></span><a class="staff" href="/setup">staff</a></div>
   </header>
-
-  <form id="f" autocomplete="off" novalidate>
-    <section class="step" id="s1">
-      <div class="step-h"><span class="n">1</span><h2>Who are you?</h2></div>
-      <div class="seg" role="group" aria-label="Do you have a NetID?">
-        <button type="button" id="haveNetid" aria-pressed="true">I have a NetID</button>
-        <button type="button" id="noNetid" aria-pressed="false">I don't have one</button>
+  <main>
+    <form class="you" id="f" autocomplete="off" novalidate>
+      <div class="who">
+        <div id="netidBox">
+          <label class="label" for="netid">Your NetID</label>
+          <input class="netid" id="netid" placeholder="abc123" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done">
+        </div>
+        <div id="nameBox" class="hidden">
+          <label class="label" for="name">Name</label>
+          <input class="line" id="name" autocomplete="off" enterkeyhint="next">
+          <label class="label" for="email">Email</label>
+          <input class="line" id="email" type="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done">
+        </div>
+        <button type="button" class="swap" id="swap">No NetID? Use your name and email</button>
       </div>
-      <div id="netidBox">
-        <label for="netid" class="sr-only">NetID</label>
-        <input class="big" id="netid" placeholder="NetID, e.g. abc123" autocapitalize="none" autocorrect="off" spellcheck="false">
+      <div class="more" id="more">
+        <label class="label" for="desc"><span id="descLabel">Anything we should know</span><span id="descReq"></span></label>
+        <textarea id="desc" maxlength="1000" enterkeyhint="done"></textarea>
       </div>
-      <div class="two hidden" id="nameBox">
-        <div class="field"><label for="name">Full name</label><input class="big" id="name" autocomplete="off"></div>
-        <div class="field"><label for="email">Email</label><input class="big" id="email" type="email" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
+      <div class="side">
+        <button class="go" type="submit" id="go">Check in <span id="goIcon"></span></button>
+        <p class="msg" id="msg" role="alert"></p>
       </div>
+    </form>
+    <section class="what" aria-labelledby="whatLabel">
+      <div class="label" id="whatLabel">What do you need help with?</div>
+      <div class="issues" id="issues" role="group" aria-labelledby="whatLabel"></div>
     </section>
-
-    <section class="step" id="s2">
-      <div class="step-h"><span class="n">2</span><h2>What do you need help with?</h2></div>
-      <div class="issues" id="issues" role="group" aria-label="Common issues"></div>
-    </section>
-
-    <section class="step" id="s3">
-      <div class="step-h"><span class="n">3</span><h2><label for="desc">Tell us more</label></h2><span class="tag" id="descTag">Optional</span></div>
-      <textarea class="big" id="desc" rows="3" maxlength="1000" placeholder="Anything that helps us help you faster"></textarea>
-      <p class="hint"><span id="descHint"></span><span class="count" id="count"></span></p>
-    </section>
-
-    <div class="bar">
-      <div class="bar-in">
-        <p class="error" id="err" role="alert"></p>
-        <button class="primary" type="submit" id="go">Check in</button>
-      </div>
-    </div>
-  </form>
+  </main>
 </div>
 
-<div id="doneView" class="full hidden">
-  <div>
-    <div class="check"><svg viewBox="0 0 52 52" aria-hidden="true"><path d="M14 27 l8 8 l16 -18"/></svg></div>
-    <h1 id="doneTitle">You're checked in!</h1>
-    <p id="doneText">A consultant will be with you shortly. Feel free to have a seat.</p>
-    <div class="countdown" id="countdown"><div></div></div>
+<div class="done hidden" id="doneView">
+  <div class="stub">
+    <div class="no"><span id="stubNo"></span><span id="stubTime"></span></div>
+    <h1>You're checked in.</h1>
+    <p><span class="who" id="stubWho"></span>, grab a seat. A consultant will come find you.</p>
+    <div class="timer" id="timer"><div></div></div>
   </div>
 </div>
 
-<div id="offView" class="full hidden">
-  <div>
-    <h1>This iPad isn't set up yet</h1>
-    <p>A consultant needs to sign in and choose a location.</p>
-    <p style="margin-top:24px"><a class="btn primary" href="/setup">Set up</a></p>
-  </div>
+<div class="off hidden" id="offView">
+  <div><h1>This iPad isn't set up.</h1><p>A consultant needs to sign in and pick a location.</p><a href="/setup">Set up</a></div>
 </div>
 
 <script src="/common.js"></script>
+<script src="/icons.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const OTHER = '__other__';
 const IDLE_MS = 90 * 1000; // clear a half-filled form after 90s untouched
-const DONE_MS = 6 * 1000;  // how long the thank-you screen shows
-let selected = null;       // issue label, OTHER, or null
+const DONE_MS = 7 * 1000;  // how long the confirmation shows
+const NETID_RE = /^[a-z]{2,8}[0-9]{1,6}$/i;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+let selected = null;
 let minDesc = 10;
-let locationName = '';
 let idleTimer = null;
+let usingNetid = true;
+let tried = false; // did they press Check in at least once?
 
-// A friendly icon for each issue button, matched by keyword so admins can add their own.
-const ICONS = [
-  [/duo|2fa|mfa|two.?factor/i, '🔐'], [/password|netid|login|account/i, '🔑'], [/wi-?fi|wireless|network|internet/i, '📶'],
-  [/e-?mail|outlook|gmail/i, '✉️'], [/canvas|course|class/i, '🎓'], [/print/i, '🖨️'], [/software|install|office|app/i, '💿'],
-  [/laptop|hardware|computer|device|repair/i, '💻'], [/phone|mobile/i, '📱'], [/virus|security|phish/i, '🛡️'],
+$('goIcon').replaceWith(icon('arrow-right'));
+
+// Pick an icon for each issue by keyword, so admins can add their own buttons.
+const ICON_RULES = [
+  [/duo|2fa|mfa|two.?factor/i, 'shield-check'], [/password|netid|login|account/i, 'key-round'],
+  [/wi-?fi|wireless|network|internet|eduroam/i, 'wifi'], [/e-?mail|outlook|gmail/i, 'mail'],
+  [/canvas|course|class/i, 'graduation-cap'], [/print/i, 'printer'], [/software|install|office|app/i, 'download'],
+  [/laptop|hardware|computer|repair/i, 'laptop'], [/phone|mobile/i, 'smartphone'], [/virus|security|phish|scam/i, 'shield-alert'],
+  [/zoom|video|webex|teams/i, 'video'], [/monitor|display|screen|projector/i, 'monitor'], [/storage|drive|backup|file/i, 'hard-drive'],
 ];
-const iconFor = (label) => (ICONS.find(([re]) => re.test(label)) || [null, '💬'])[1];
+const iconFor = (label) => (ICON_RULES.find(([re]) => re.test(label)) || [null, 'circle-help'])[1];
 
 function tick() { $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
 setInterval(tick, 15000); tick();
 
-const usingNetid = () => $('haveNetid').getAttribute('aria-pressed') === 'true';
-function useNetid(on) {
-  $('haveNetid').setAttribute('aria-pressed', String(on));
-  $('noNetid').setAttribute('aria-pressed', String(!on));
-  $('netidBox').classList.toggle('hidden', !on);
-  $('nameBox').classList.toggle('hidden', on);
-  (on ? $('netid') : $('name')).focus();
-  update();
-}
-$('haveNetid').onclick = () => useNetid(true);
-$('noNetid').onclick = () => useNetid(false);
-
-// Is each step complete? Drives the green step numbers, the "Required" tag and the hint.
-function state() {
-  const netid = $('netid').value.trim();
-  const who = usingNetid() ? /^[a-z]{2,8}[0-9]{1,6}$/i.test(netid) : $('name').value.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($('email').value.trim());
-  const descLen = $('desc').value.trim().length;
+function check() {
+  const who = usingNetid ? NETID_RE.test($('netid').value.trim())
+    : !!$('name').value.trim() && EMAIL_RE.test($('email').value.trim());
   const needDesc = !selected || selected === OTHER;
-  const issue = selected && selected !== OTHER;
-  const desc = needDesc ? descLen >= minDesc : true;
-  return { who: !!who, issue: issue || (selected === OTHER && desc) || (!selected && desc), needDesc, desc, descLen };
+  const len = $('desc').value.trim().length;
+  return { who, needDesc, desc: !needDesc || len >= minDesc, len };
 }
 
 function update() {
-  const s = state();
-  $('s1').classList.toggle('done', s.who);
-  $('s2').classList.toggle('done', !!selected && selected !== OTHER);
-  $('s3').classList.toggle('done', s.needDesc && s.desc);
-  const tag = $('descTag');
-  tag.textContent = s.needDesc ? 'Required' : 'Optional';
-  tag.classList.toggle('req', s.needDesc);
-  $('desc').placeholder = s.needDesc ? 'Describe what you need help with' : 'Anything that helps us help you faster';
-  $('descHint').textContent = s.needDesc
-    ? (selected === OTHER ? 'Since you picked "Something else", tell us a little about it.' : 'Tap a button above, or describe your issue here.')
-    : '';
-  $('count').textContent = s.needDesc && s.descLen < minDesc ? `${minDesc - s.descLen} more characters` : '';
-  ['s1', 's2', 's3'].forEach((id) => $(id).classList.remove('attention'));
-  $('err').textContent = '';
+  const s = check();
+  $('descLabel').textContent = s.needDesc ? 'Describe the problem' : 'Anything we should know';
+  // Before anything is picked this is just an alternative to the buttons; once they pick
+  // "Something else" (or try to check in without a button) it becomes clearly required.
+  const strict = selected === OTHER || tried;
+  let tag = 'Optional'; let cls = '';
+  if (s.needDesc && s.len >= minDesc) tag = 'Got it';
+  else if (s.needDesc && strict) { tag = `Required · ${minDesc - s.len} more`; cls = 'req'; }
+  else if (s.needDesc) { tag = 'or pick a topic'; cls = 'soft'; }
+  $('descReq').textContent = tag;
+  $('descReq').className = cls;
+  $('more').classList.toggle('needed', s.needDesc && selected === OTHER && s.len < minDesc);
+  $('go').classList.toggle('ready', s.who && (selected || s.desc) && s.desc);
+  $('msg').textContent = '';
 }
 ['netid', 'name', 'email', 'desc'].forEach((id) => $(id).addEventListener('input', update));
 
-function flag(id, msg) {
-  const box = $(id);
-  box.classList.remove('attention'); void box.offsetWidth; box.classList.add('attention');
-  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  $('err').textContent = msg;
+function setMode(netid) {
+  usingNetid = netid;
+  $('netidBox').classList.toggle('hidden', !netid);
+  $('nameBox').classList.toggle('hidden', netid);
+  $('swap').textContent = netid ? 'No NetID? Use your name and email' : 'I have a NetID';
+  update();
+}
+$('swap').onclick = () => { setMode(!usingNetid); (usingNetid ? $('netid') : $('name')).focus(); };
+
+// Return / Done closes the keyboard (or moves name -> email) instead of submitting.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.target.tagName === 'BUTTON') return;
+  e.preventDefault();
+  if (e.target.id === 'name') $('email').focus(); else e.target.blur();
+});
+
+function nudge(id, text) {
+  const n = $(id); n.classList.remove('shake'); void n.offsetWidth; n.classList.add('shake');
+  $('msg').textContent = text;
+}
+
+function issueButton(label, value, iconName, extra) {
+  return el('button', {
+    type: 'button', class: 'issue ' + (extra || ''), 'aria-pressed': 'false',
+    onclick: (e) => {
+      const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+      document.querySelectorAll('.issue').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+      e.currentTarget.setAttribute('aria-pressed', String(on));
+      selected = on ? value : null;
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      update();
+    },
+  }, icon(iconName), el('span', {}, label), icon('check', 'tick'));
 }
 
 function reset() {
   $('f').reset();
   selected = null;
-  document.querySelectorAll('#issues .tile').forEach((b) => b.setAttribute('aria-pressed', 'false'));
-  useNetid(true);
-  $('netid').blur();
-  update();
-  window.scrollTo(0, 0);
+  tried = false;
+  document.querySelectorAll('.issue').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  setMode(true);
 }
 
 function poke() { clearTimeout(idleTimer); idleTimer = setTimeout(reset, IDLE_MS); }
 ['input', 'click', 'touchstart'].forEach((ev) => document.addEventListener(ev, poke, { passive: true }));
 
-function tile(label, value, icon, extraClass) {
-  return el('button', {
-    type: 'button', class: 'tile ' + (extraClass || ''), 'aria-pressed': 'false',
-    onclick: (e) => {
-      const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
-      document.querySelectorAll('#issues .tile').forEach((b) => b.setAttribute('aria-pressed', 'false'));
-      e.currentTarget.setAttribute('aria-pressed', String(on));
-      selected = on ? value : null;
-      update();
-      if (on && value === OTHER) setTimeout(() => $('desc').focus(), 50);
-    },
-  }, el('span', { class: 'ico', 'aria-hidden': 'true' }, icon), label);
-}
+const showOff = () => { $('formView').classList.add('hidden'); $('offView').classList.remove('hidden'); };
 
 async function load() {
   try {
     const info = await api('/api/kiosk/info');
-    locationName = info.location;
     minDesc = info.minDescription || 10;
-    $('loc').textContent = info.location;
-    $('issues').replaceChildren(...info.issues.map((l) => tile(l, l, iconFor(l))), tile('Something else', OTHER, '✏️', 'other'));
+    $('issues').replaceChildren(...info.issues.map((l) => issueButton(l, l, iconFor(l))), issueButton('Something else', OTHER, 'pencil-line', 'other'));
     selected = null;
     update();
-  } catch (e) {
-    if (e.status === 401) { $('formView').classList.add('hidden'); $('offView').classList.remove('hidden'); }
-  }
+  } catch (e) { if (e.status === 401) showOff(); }
 }
 
 $('f').onsubmit = async (e) => {
   e.preventDefault();
-  const s = state();
-  if (!s.who) return flag('s1', usingNetid() ? 'Enter your NetID (letters then numbers, like abc123).' : 'Enter your name and a valid email.');
-  if (!selected && !s.desc) return flag('s2', 'Tap the issue that fits best, or describe it in step 3.');
-  if (s.needDesc && !s.desc) return flag('s3', 'Please tell us a bit more about what you need.');
+  tried = true; update();
+  const s = check();
+  if (!s.who) return nudge(usingNetid ? 'netidBox' : 'nameBox', usingNetid ? 'Enter your NetID, like abc123.' : 'Enter your name and a valid email.');
+  if (!selected && !s.desc) return nudge('issues', 'Pick what you need help with, or describe it.');
+  if (!s.desc) return nudge('more', 'Tell us a little more about the problem.');
 
   const body = {
-    netid: usingNetid() ? $('netid').value.trim() : '',
-    name: usingNetid() ? '' : $('name').value.trim(),
-    email: usingNetid() ? '' : $('email').value.trim(),
+    netid: usingNetid ? $('netid').value.trim() : '',
+    name: usingNetid ? '' : $('name').value.trim(),
+    email: usingNetid ? '' : $('email').value.trim(),
     issue_type: selected && selected !== OTHER ? selected : '',
     description: $('desc').value.trim(),
   };
   $('go').disabled = true;
   try {
-    await api('/api/kiosk/walkins', body);
-    if (document.activeElement) document.activeElement.blur();
-    $('doneTitle').textContent = `You're checked in${body.name ? ', ' + body.name.split(' ')[0] : ''}!`;
-    $('doneText').textContent = 'A consultant will be with you shortly. Feel free to have a seat.';
-    $('formView').classList.add('hidden');
+    const r = await api('/api/kiosk/walkins', body);
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    $('stubNo').textContent = 'No. ' + String(r.id).padStart(3, '0');
+    $('stubTime').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    $('stubWho').textContent = body.netid ? body.netid.toLowerCase() : body.name.split(' ')[0];
     $('doneView').classList.remove('hidden');
-    const cd = $('countdown'); cd.classList.remove('run'); cd.firstElementChild.style.transitionDuration = DONE_MS + 'ms';
-    void cd.offsetWidth; cd.classList.add('run');
-    setTimeout(() => {
-      reset();
-      $('doneView').classList.add('hidden');
-      $('formView').classList.remove('hidden');
-    }, DONE_MS);
+    const t = $('timer'); t.classList.remove('run'); t.firstElementChild.style.transitionDuration = DONE_MS + 'ms';
+    void t.offsetWidth; t.classList.add('run');
+    setTimeout(() => { reset(); $('doneView').classList.add('hidden'); }, DONE_MS);
   } catch (x) {
-    if (x.status === 401) { $('formView').classList.add('hidden'); $('offView').classList.remove('hidden'); }
-    $('err').textContent = x.message;
+    if (x.status === 401) showOff();
+    $('msg').textContent = x.message;
   } finally {
     $('go').disabled = false;
   }
