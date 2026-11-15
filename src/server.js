@@ -2,7 +2,7 @@ const path = require('path');
 const express = require('express');
 const QRCode = require('qrcode');
 const config = require('./config');
-const { db, now, tx, parseOptions } = require('./db');
+const { db, now, tx, parseOptions, getSetting, setSetting } = require('./db');
 const auth = require('./auth');
 const slack = require('./slack');
 const { startRetention } = require('./retention');
@@ -113,6 +113,7 @@ app.get('/api/me', auth.requireUser, (req, res) => {
     device: req.device ? { location: req.device.location_name } : null,
     display: req.display ? { location: req.display.location_name } : null,
     servicenowUrl: config.servicenowUrl,
+    consentOn: consentSettings().on, // show the permission form status on the queue
   });
 });
 
@@ -150,13 +151,36 @@ async function qrSvg(url) {
   return qrCache.get(url);
 }
 
+// Software remediation consent: the last step of check-in. People sign on the iPad (inside
+// this app, so Guided Access keeps the iPad on one page) or scan a QR code for the official form.
+// Placeholder wording until OIT supplies the real text; admins replace it on the Admin page.
+const CONSENT_DEFAULT_URL = 'http://go.rutgers.edu/softwareFORM';
+// Text of OIT's "Software Remediation and Troubleshooting Authorization Form" (the DocuSign
+// PowerForm at the link above). Paragraphs are separated by a blank line.
+const CONSENT_DEFAULT_TEXT = [
+  'I hereby authorize OIT to attempt to fix problems with my device, with the understanding that specific results cannot be guaranteed. I recognize that there may be circumstances in which my device cannot be repaired or a desired service cannot be configured, and may need to be referred to an authorized repair center. The service provided by OIT is complimentary and the duration of the service cannot be predicted. Every attempt will be made to fix the problem as quickly as possible.',
+  'I authorize the technician(s) providing the service to install anti-virus or any other necessary software on my device to perform required services. I understand that some software may remain on my device after completion of the service to ensure the future security and functionality of the device. I understand that in the process of working on my device there is a potential for data loss. I am responsible for any necessary backups of my data so that in the event of such loss, the data can be restored. OIT will not be responsible for data loss or data recovery.',
+  'I understand there are risks inherent in attempting to fix any device problems. It is possible there may be damage of system data or data loss caused by already existing problems such as viruses, poorly configured software, or hardware problems/failures. It is also possible that unintentional damage may occur to my device while receiving assistance. I agree to hold OIT staff harmless from damages resulting from such problems.',
+  'I understand that no changes will be made to my device while I am not present, and agree that I will remain nearby and available throughout service to my device so that I can authorize changes, updates and supply password credentials as necessary.',
+  'I have read the above, understand its contents, and voluntarily agree to its terms.',
+].join('\n\n');
+const CONSENT_MAX = 2400; // much longer text won't fit on the iPad without scrolling
+const SIG_MAX = 80 * 1024; // finger signature, a small PNG data URL
+const consentSettings = () => ({
+  on: getSetting('consent_on', '1') === '1',
+  url: getSetting('consent_url', CONSENT_DEFAULT_URL),
+  text: getSetting('consent_text', CONSENT_DEFAULT_TEXT),
+});
+
 app.get('/api/kiosk/info', auth.requireDevice, async (req, res, next) => {
   try {
     db.prepare('UPDATE devices SET last_seen = ? WHERE id = ?').run(now(), req.device.id);
     const rows = db.prepare('SELECT label, options, help_url, help_title FROM issue_types WHERE active = 1 ORDER BY sort, label').all();
+    const c = consentSettings();
     res.json({
       location: req.device.location_name,
       minDescription: MIN_DESCRIPTION,
+      consent: c.on ? { text: c.text, url: c.url || null, qr: c.url ? await qrSvg(c.url) : null } : null,
       issues: await Promise.all(rows.map(async (r) => ({
         label: r.label,
         options: parseOptions(r.options),
@@ -213,6 +237,31 @@ app.post('/api/kiosk/walkins/:id/self-solved', auth.requireDevice, (req, res) =>
                         WHERE id=? AND device_id=? AND status='waiting' AND created_at >= ?`)
     .run(now(), Number(req.params.id), req.device.id, since);
   if (r.changes === 0) return bad(res, 'A consultant already has you. Let them know you\'re all set.', 409);
+  res.json({ ok: true });
+});
+
+// Last check-in step: sign the consent on the iPad, or say they'll use the form on their phone,
+// or skip it. Same iPad, right after check-in, and once signed it can't be changed from the iPad.
+const CONSENT_WINDOW_MINUTES = 15;
+app.post('/api/kiosk/walkins/:id/consent', auth.requireDevice, (req, res) => {
+  const c = consentSettings();
+  if (!c.on) return bad(res, 'The permission form is turned off.', 409);
+  const method = ['signed', 'phone', 'skipped'].includes(req.body.method) ? req.body.method : null;
+  if (!method) return bad(res, 'Pick how you want to sign.');
+  if (method === 'phone' && !c.url) return bad(res, 'Signing on a phone is not set up here.');
+  const name = clean(req.body.name, 100);
+  const sig = typeof req.body.signature === 'string' ? req.body.signature : '';
+  if (method === 'signed') {
+    if (name.replace(/[^\p{L}]/gu, '').length < 2) return bad(res, 'Print your full name.');
+    if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(sig) || sig.length > SIG_MAX) return bad(res, 'Sign in the box with your finger.');
+  }
+  const since = new Date(Date.now() - CONSENT_WINDOW_MINUTES * 60e3).toISOString();
+  const r = db.prepare(`UPDATE walkins SET consent=?, consent_name=?, consent_text=?, consent_sig=?, consent_at=?, consent_by=NULL
+                        WHERE id=? AND device_id=? AND status IN ('waiting','claimed') AND created_at >= ?
+                          AND (consent IS NULL OR consent IN ('phone','skipped'))`)
+    .run(method, method === 'signed' ? name : null, method === 'signed' ? c.text : null, method === 'signed' ? sig : null, now(),
+      Number(req.params.id), req.device.id, since);
+  if (r.changes === 0) return bad(res, 'This check-in can\'t be changed here any more. Let your consultant know.', 409);
   res.json({ ok: true });
 });
 
@@ -276,9 +325,13 @@ app.get('/api/tv/queue', auth.requireDisplay, (req, res) => {
 });
 
 // ---------- Dashboard ----------
-const WALKIN_SELECT = `SELECT w.*, l.name AS location, cu.name AS claimed_by_name, xu.name AS closed_by_name
+const WALKIN_SELECT = `SELECT w.*, l.name AS location, cu.name AS claimed_by_name, xu.name AS closed_by_name, bu.name AS consent_by_name
   FROM walkins w JOIN locations l ON l.id = w.location_id
-  LEFT JOIN users cu ON cu.email = w.claimed_by LEFT JOIN users xu ON xu.email = w.closed_by`;
+  LEFT JOIN users cu ON cu.email = w.claimed_by LEFT JOIN users xu ON xu.email = w.closed_by
+  LEFT JOIN users bu ON bu.email = w.consent_by`;
+// The queue refreshes every few seconds, so leave the signed form's text and signature image
+// out of the list. The walk-in page loads them.
+const listRow = ({ consent_text, consent_sig, ...w }) => w;
 
 app.get('/api/walkins', auth.requireUser, (req, res) => {
   const where = [];
@@ -292,7 +345,7 @@ app.get('/api/walkins', auth.requireUser, (req, res) => {
   }
   if (req.query.location) { where.push('w.location_id = ?'); args.push(Number(req.query.location)); }
   const rows = db.prepare(`${WALKIN_SELECT} WHERE ${where.join(' AND ')} ORDER BY w.created_at DESC LIMIT 500`).all(...args);
-  res.json(rows);
+  res.json(rows.map(listRow));
 });
 
 app.get('/api/walkins/:id', auth.requireUser, (req, res) => {
@@ -349,6 +402,11 @@ app.post('/api/walkins/:id/:action', auth.requireUser, (req, res) => {
         db.prepare("UPDATE walkins SET status='left', close_reason=?, closed_at=?, closed_by=? WHERE id=?").run(reason, now(), me, id);
         return {};
       }
+      case 'consent':
+        // A consultant checked the form (e.g. the confirmation on the person's phone) and marks it signed.
+        if (['signed', 'confirmed'].includes(w.consent)) return { code: 409, error: 'The permission form is already signed.' };
+        db.prepare("UPDATE walkins SET consent='confirmed', consent_at=?, consent_by=? WHERE id=?").run(now(), me, id);
+        return {};
       case 'reopen':
         if (!['resolved', 'left'].includes(w.status)) return { code: 409, error: 'This walk-in is still open.' };
         db.prepare(`UPDATE walkins SET status=CASE WHEN claimed_by IS NULL THEN 'waiting' ELSE 'claimed' END,
@@ -401,7 +459,8 @@ app.get('/api/reports/export.csv', auth.requireUser, (req, res) => {
   const [from, to] = range(req);
   const rows = db.prepare(`${WALKIN_SELECT} WHERE w.created_at >= ? AND w.created_at < ? ORDER BY w.created_at`).all(from, to);
   const cols = ['id', 'created_at', 'location', 'netid', 'name', 'email', 'issue_type', 'description', 'status',
-    'claimed_by', 'claimed_at', 'ticket', 'closed_at', 'closed_by', 'close_reason', 'notes'];
+    'claimed_by', 'claimed_at', 'ticket', 'closed_at', 'closed_by', 'close_reason', 'notes',
+    'consent', 'consent_name', 'consent_at', 'consent_by'];
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="walkins-${from.slice(0, 10)}-to-${to.slice(0, 10)}.csv"`);
   res.send([cols.join(','), ...rows.map((r) => cols.map((c) => csvCell(r[c])).join(','))].join('\r\n'));
@@ -418,7 +477,22 @@ app.get('/api/admin', auth.requireAdmin, (req, res) => {
     adminEmails: config.adminEmails,
     retentionDays: config.retentionDays,
     slack: slack.enabled(),
+    consent: { ...consentSettings(), max: CONSENT_MAX, defaultText: CONSENT_DEFAULT_TEXT },
   });
+});
+
+app.post('/api/admin/consent', auth.requireAdmin, (req, res) => {
+  const url = String(req.body.url || '').trim();
+  if (url && !/^https?:\/\/[^\s]+$/i.test(url)) return bad(res, 'The form link must start with https:// or http://');
+  if (url.length > 300) return bad(res, 'That link is too long for a QR code people can scan easily.');
+  // Keep paragraph breaks; tidy everything else.
+  const text = String(req.body.text || '').split(/\n\s*\n/).map((p) => p.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n\n');
+  if (text.length < 20) return bad(res, 'Enter the permission text people agree to.');
+  if (text.length > CONSENT_MAX) return bad(res, `Keep the text under ${CONSENT_MAX} characters so it fits on the iPad.`);
+  setSetting('consent_on', req.body.on === false ? '0' : '1');
+  setSetting('consent_url', url);
+  setSetting('consent_text', text);
+  res.json({ ok: true });
 });
 
 app.post('/api/admin/users', auth.requireAdmin, (req, res) => {

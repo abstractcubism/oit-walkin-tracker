@@ -6,7 +6,7 @@ const { db, now } = require('./db');
 function purge() {
   if (!config.retentionDays || config.retentionDays <= 0) return 0;
   const cutoff = new Date(Date.now() - config.retentionDays * 24 * 3600e3).toISOString();
-  const r = db.prepare(`UPDATE walkins SET netid=NULL, name=NULL, email=NULL, description=NULL, notes=NULL, purged_at=?
+  const r = db.prepare(`UPDATE walkins SET netid=NULL, name=NULL, email=NULL, description=NULL, notes=NULL, consent_name=NULL, consent_sig=NULL, purged_at=?
                         WHERE created_at < ? AND purged_at IS NULL AND status IN ('resolved','left')`).run(now(), cutoff);
   if (r.changes) console.log(`Retention: erased personal details from ${r.changes} walk-ins older than ${config.retentionDays} days.`);
   return r.changes;

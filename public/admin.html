@@ -42,6 +42,19 @@
     </div>
   </div>
   <div class="card">
+    <h3>Permission form (last check-in step)</h3>
+    <p class="small muted">After checking in, people sign OIT's software remediation form on the iPad with their finger, or scan a QR code to sign the DocuSign version on their phone. Leave the link blank to remove the QR code and use the iPad form only.</p>
+    <form id="consentForm">
+      <label class="row" style="gap:8px;font-weight:600"><input type="checkbox" id="cOn"> Ask for the permission form at check-in</label>
+      <label for="cUrl" style="margin-top:12px">DocuSign form link for the QR code</label>
+      <input id="cUrl" placeholder="Blank = no QR code, iPad form only" style="width:100%">
+      <label for="cText" style="margin-top:12px">Form text <span class="small muted" id="cCount"></span></label>
+      <textarea id="cText" rows="12" style="width:100%"></textarea>
+      <p class="small muted">Put a blank line between paragraphs. Keep it the same as the official form.</p>
+      <div class="row"><button class="primary" type="submit">Save</button><button type="button" id="cReset">Use the official text</button></div>
+    </form>
+  </div>
+  <div class="card">
     <h3>Linked iPads and TV screens</h3>
     <p class="small muted">If an iPad or TV is lost or replaced, unlink it here and it stops working immediately.</p>
     <div style="overflow-x:auto"><table><thead><tr><th>Location</th><th>Set up by</th><th>Set up</th><th>Last seen</th><th></th></tr></thead><tbody id="devices"></tbody></table></div>
@@ -51,6 +64,9 @@
 <script>
 const $ = (id) => document.getElementById(id);
 let me;
+let consentInfo = null;
+let consentLoaded = false;
+const countConsent = () => { $('cCount').textContent = `${$('cText').value.length} / ${consentInfo.max}`; };
 
 async function post(path, body) {
   try { await api(path, body); load(); return true; } catch (e) { toast(e.message); return false; }
@@ -59,6 +75,12 @@ async function post(path, body) {
 async function load() {
   const d = await api('/api/admin');
   $('summary').textContent = `Personal details are erased after ${d.retentionDays} days. Slack posting is ${d.slack ? 'on' : 'off'}.`;
+
+  consentInfo = d.consent;
+  if (!consentLoaded) { // don't overwrite edits in progress when the page reloads its lists
+    consentLoaded = true;
+    $('cOn').checked = d.consent.on; $('cUrl').value = d.consent.url; $('cText').value = d.consent.text; countConsent();
+  }
 
   $('users').replaceChildren(...d.users.map((u) => {
     const fixed = d.adminEmails.includes(u.email);
@@ -108,6 +130,12 @@ async function load() {
     : [el('tr', {}, el('td', { class: 'muted' }, 'Nothing linked yet. Sign in on an iPad or TV and go to /setup.'))]));
 }
 
+$('cText').addEventListener('input', countConsent);
+$('cReset').onclick = () => { $('cText').value = consentInfo.defaultText; countConsent(); };
+$('consentForm').onsubmit = async (e) => {
+  e.preventDefault();
+  if (await post('/api/admin/consent', { on: $('cOn').checked, url: $('cUrl').value, text: $('cText').value })) toast('Permission form saved');
+};
 $('addUser').onsubmit = async (e) => {
   e.preventDefault();
   if (await post('/api/admin/users', { email: $('uEmail').value, name: $('uName').value, role: $('uRole').value })) e.target.reset();

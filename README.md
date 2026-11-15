@@ -4,6 +4,7 @@ Check-in and queue for walk-ins at Rutgers OIT help desk and lab locations.
 
 1. **At opening**, a consultant signs in on the location's iPad, picks the location, and the iPad becomes a check-in form. The consultant is signed out on the iPad right away. The iPad keeps a token that can only submit walk-ins.
 2. **A walk-in** enters their NetID (or name and email if they don't have one), taps a common issue such as Duo / 2FA, and optionally describes it.
+   As the last step, they sign OIT's **software remediation permission form**: either right on the iPad (the form's full text, a finger signature, printed name and date) or by scanning a QR code for the DocuSign version on their phone. They can also skip it if nobody needs to touch their device.
 3. **Consultants** see the live queue on their computers, **claim** a walk-in (two people can't both claim the same one), add the **ServiceNow ticket number**, and mark it resolved or left.
 4. **Slack** (optional, last): each walk-in is posted to a channel with the NetID, the issue and a direct link to that walk-in.
 
@@ -103,6 +104,12 @@ All three requests are small, and each is independent of the others.
 4. To get back to the staff screen, **press and hold "Rutgers OIT" in the top-left corner for 3 seconds**. That opens the consultant sign-in, which has a "Back to check-in" button and goes back to the form on its own after a minute. Nothing changes on the iPad until a consultant signs in. You can also unlink an iPad from the Admin page.
 
 The form clears itself 6 seconds after each check-in, and any half-filled form is cleared after 90 seconds of no activity.
+
+### Permission form
+
+After check-in, the iPad shows the Software Remediation and Troubleshooting Authorization form. Signing it on the iPad never leaves the page, so Guided Access stays on. The queue shows each walk-in's form status (**Form signed**, **Form: on phone**, **Form skipped**, **Form not signed**). The walk-in page shows the signed form with the "For office use" details (NetID, ticket, consultant), and has a **Mark as signed** button for after a consultant has checked a phone signature.
+
+On the Admin page you can turn the step off, change the form text, or change the DocuSign link. **Clear the link to remove the QR code** and use the iPad form only. The printed name and signature are erased with the other personal details after `RETENTION_DAYS`. Signatures made on the iPad are stored only in this app, not in DocuSign.
 
 If you use *Add to Home Screen*, set the iPad up from the home-screen app itself, because it keeps separate cookies from Safari.
 

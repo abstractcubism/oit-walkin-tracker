@@ -14,6 +14,16 @@
   .sn { display: inline-block; margin-top: 10px; font-weight: 600; }
   .notice { background: var(--warn-tint); color: var(--warn); font-weight: 600; }
   .ticket input { font-size: 1.2rem; width: 220px; text-transform: uppercase; }
+  .form-ok { color: var(--ink); font-weight: 600; }
+  .form-no { color: var(--scarlet); font-weight: 600; }
+  .signed { margin-top: 16px; }
+  .signed summary { cursor: pointer; font-weight: 600; }
+  .signed .terms p { font-size: .9rem; line-height: 1.45; margin: 8px 0; }
+  .signed .sig { display: grid; grid-template-columns: 2fr 1fr; gap: 4px 20px; margin-top: 12px; align-items: end; }
+  .signed .sig img { max-width: 100%; height: 80px; object-fit: contain; object-position: left bottom; border-bottom: 1px solid var(--ink); display: block; }
+  .signed .sig .val { border-bottom: 1px solid var(--ink); padding-bottom: 4px; }
+  .signed .sig .cap { font-size: .8rem; color: var(--muted); margin-bottom: 10px; }
+  .signed .office { margin-top: 6px; border: 1px solid var(--line); padding: 10px 14px; display: grid; grid-template-columns: 120px 1fr; gap: 4px 12px; font-size: .9rem; max-width: 380px; }
   .grid { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; align-items: start; }
   @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } dl { grid-template-columns: 110px 1fr; } }
 </style>
@@ -85,6 +95,7 @@ function render(w) {
           el('dt', {}, 'Issue'), el('dd', {}, w.issue_type || el('span', { class: 'muted' }, 'Not picked')),
           el('dt', {}, 'Description'), el('dd', { style: 'white-space:pre-wrap' }, w.description || el('span', { class: 'muted' }, 'None')),
           el('dt', {}, 'Location'), el('dd', {}, w.location),
+          me.consentOn || w.consent ? [el('dt', {}, 'Permission form'), el('dd', {}, consentCell(w, open))] : null,
           el('dt', {}, 'Arrived'), el('dd', {}, fmtDateTime(w.created_at)),
           w.claimed_at ? [el('dt', {}, 'Claimed'), el('dd', {}, `${fmtTime(w.claimed_at)} by ${w.claimed_by_name || w.claimed_by} (waited ${minutesSince(w.created_at, w.claimed_at)} min)`)] : null,
           w.closed_at ? [el('dt', {}, closedLabel(w)), el('dd', {}, `${fmtTime(w.closed_at)} ${w.closed_by ? 'by ' + (w.closed_by_name || w.closed_by) : 'on the iPad'}`)] : null)),
@@ -95,7 +106,35 @@ function render(w) {
           w.ticket ? el('a', { class: 'sn', href: servicenowLink(me.servicenowUrl, w.ticket), target: '_blank', rel: 'noopener' }, `Open ${w.ticket} in ServiceNow ↗`) : null),
         el('div', { style: 'margin-top:16px' },
           el('label', {}, 'Notes'), notes,
-          el('button', { style: 'margin-top:8px', onclick: async () => { if (await act('update', { notes: notes.value })) toast('Notes saved'); } }, 'Save notes'))))].filter(Boolean));
+          el('button', { style: 'margin-top:8px', onclick: async () => { if (await act('update', { notes: notes.value })) toast('Notes saved'); } }, 'Save notes')))),
+    w.consent === 'signed' && w.consent_text ? signedForm(w) : null].filter(Boolean));
+}
+
+function consentCell(w, open) {
+  const c = consentState(w);
+  return [
+    el('span', { class: c.ok ? 'form-ok' : 'form-no' }, c.long),
+    w.consent_at && c.ok ? el('span', { class: 'muted' }, ' · ' + fmtDateTime(w.consent_at)) : null,
+    !c.ok && open ? el('div', { style: 'margin-top:6px' }, el('button', { class: 'small', title: 'For example after seeing the DocuSign confirmation on their phone',
+      onclick: () => { if (confirm('Mark the permission form as signed? Only do this after you have checked it.')) act('consent'); } }, 'Mark as signed')) : null,
+  ];
+}
+
+// The form signed on the iPad, laid out like the paper one, with the "For office use" box filled in.
+function signedForm(w) {
+  return el('details', { class: 'card signed' },
+    el('summary', {}, 'Signed permission form'),
+    el('div', { class: 'terms' }, w.consent_text.split(/\n\s*\n/).map((t) => el('p', {}, t))),
+    el('div', { class: 'sig' },
+      w.consent_sig ? el('img', { src: w.consent_sig, alt: 'Signature of ' + (w.consent_name || 'the walk-in') }) : el('div', { class: 'val muted' }, '(erased)'),
+      el('div', { class: 'val' }, fmtDateTime(w.consent_at)),
+      el('div', { class: 'cap' }, 'Signature'), el('div', { class: 'cap' }, 'Date'),
+      el('div', { class: 'val' }, w.consent_name || el('span', { class: 'muted' }, '(erased)')), el('div', {}),
+      el('div', { class: 'cap' }, 'Print name'), el('div', {})),
+    el('div', { class: 'office' },
+      el('span', { class: 'muted' }, 'NetID'), el('span', {}, w.netid || '-'),
+      el('span', { class: 'muted' }, 'Ticket #'), el('span', {}, w.ticket || '-'),
+      el('span', { class: 'muted' }, 'Consultant'), el('span', {}, w.claimed_by ? (w.claimed_by_name || w.claimed_by) : '-')));
 }
 
 async function load() {

@@ -29,6 +29,8 @@
   .loc { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 2px; }
   .acts { display: flex; gap: 8px; align-items: center; white-space: nowrap; }
   .claimed-by { font-size: .85rem; color: var(--muted); }
+  .form { display: block; margin-top: 3px; font-family: "IBM Plex Sans", sans-serif; font-size: .78rem; font-weight: 600; color: var(--muted); }
+  .form.no { color: var(--scarlet); }
   .empty { padding: 36px 18px; color: var(--muted); text-align: center; }
 
   details { margin-top: 28px; }
@@ -94,7 +96,7 @@ function openItem(w) {
   const mins = minutesSince(w.created_at);
   return el('div', { class: 'item' + (w.status === 'waiting' && mins >= LATE_MIN ? ' late' : '') },
     el('div', { class: 'wait' }, mins < 1 ? 'now' : mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h${mins % 60}`, el('small', {}, fmtTime(w.created_at))),
-    el('div', { class: 'who' }, who(w), !w.netid && w.email ? el('small', {}, w.email) : null),
+    el('div', { class: 'who' }, who(w), !w.netid && w.email ? el('small', {}, w.email) : null, formTag(w)),
     el('div', { class: 'issue' }, allTab() ? el('div', { class: 'loc' }, w.location) : null,
       w.issue_type || 'Something else', w.description ? el('small', {}, short(w.description, 110)) : null),
     el('div', { class: 'acts' },
@@ -102,6 +104,13 @@ function openItem(w) {
         ? el('button', { class: 'primary', onclick: () => act(w, 'claim') }, 'Claim')
         : el('span', { class: 'claimed-by' }, w.claimed_by === me.email ? 'Yours' : 'Claimed by ' + (w.claimed_by_name || w.claimed_by).split(/[ @]/)[0]),
       el('a', { class: 'btn', href: `/w/${w.id}` }, 'Open')));
+}
+
+// Permission form status, so nobody touches a device before it's signed.
+function formTag(w) {
+  if (!me.consentOn && !w.consent) return null;
+  const c = consentState(w);
+  return el('span', { class: 'form' + (c.ok ? '' : ' no'), title: c.long }, c.short);
 }
 
 function doneItem(w) {

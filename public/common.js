@@ -40,6 +40,18 @@ const chip = (s) => el('span', { class: 'chip ' + s }, STATUS[s] || s);
 // "Left", or "Fixed it themselves" when they used the self-help link (or a consultant marked it so).
 const closedLabel = (w) => (w.close_reason === 'self_solved' ? 'Fixed it themselves' : STATUS[w.status] || w.status);
 
+// Software remediation permission form, the last iPad check-in step.
+// ok = a consultant can work on the device; otherwise they should get it signed first.
+function consentState(w) {
+  switch (w.consent) {
+    case 'signed': return { ok: true, short: 'Form signed', long: 'Signed on the iPad' };
+    case 'confirmed': return { ok: true, short: 'Form signed', long: 'Marked signed by ' + (w.consent_by_name || w.consent_by || 'a consultant') };
+    case 'phone': return { ok: false, short: 'Form: on phone', long: 'Signing the DocuSign form on their phone. Check it was finished.' };
+    case 'skipped': return { ok: false, short: 'Form skipped', long: 'Skipped. They said nobody needs to work on their device.' };
+    default: return { ok: false, short: 'Form not signed', long: 'Not signed' };
+  }
+}
+
 function toast(msg) {
   const t = el('div', { class: 'toast', role: 'status' }, msg);
   document.body.append(t);
