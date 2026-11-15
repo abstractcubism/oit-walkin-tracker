@@ -40,10 +40,44 @@ const chip = (s) => el('span', { class: 'chip ' + s }, STATUS[s] || s);
 // "Left", or "Fixed it themselves" when they used the self-help link (or a consultant marked it so).
 const closedLabel = (w) => (w.close_reason === 'self_solved' ? 'Fixed it themselves' : STATUS[w.status] || w.status);
 
+// Status messages go into one live region that exists from page load, so screen readers
+// announce them (WCAG 4.1.3). The same region shows the toast on screen.
+function liveRegion() {
+  let r = document.getElementById('toast');
+  if (!r) { r = el('div', { id: 'toast', class: 'toast', role: 'status', 'aria-live': 'polite' }); document.body.append(r); }
+  return r;
+}
+let toastTimer = null;
 function toast(msg) {
-  const t = el('div', { class: 'toast', role: 'status' }, msg);
-  document.body.append(t);
-  setTimeout(() => t.remove(), 2600);
+  const t = liveRegion();
+  t.textContent = '';
+  // Clearing first and setting on the next frame makes repeat messages announce again.
+  requestAnimationFrame(() => { t.textContent = msg; });
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.textContent = ''; }, 4000);
+}
+// Announce to screen readers only, without a visible toast.
+function announce(msg) {
+  let r = document.getElementById('announce');
+  if (!r) { r = el('div', { id: 'announce', class: 'sr-only', role: 'status', 'aria-live': 'polite' }); document.body.append(r); }
+  r.textContent = '';
+  requestAnimationFrame(() => { r.textContent = msg; });
+}
+document.addEventListener('DOMContentLoaded', () => { liveRegion(); });
+
+// The Rutgers R. Only the official file from University Communications and Marketing is ever shown
+// (put it at public/brand/rutgers-logo.svg, see public/brand/README.md). Until it is there, the
+// university's name shows in plain text. BRAND_ALT must say exactly what the file says.
+const BRAND_SRC = '/brand/rutgers-logo.svg';
+const BRAND_ALT = 'Rutgers University, Office of Information Technology';
+function brandMark(attrs) {
+  const box = el('span', Object.assign({ class: 'brandmark' }, attrs || {}));
+  const text = () => box.replaceChildren(el('span', { class: 'brand-text' }, 'Rutgers University'));
+  if (brandMark.missing) { text(); return box; }
+  const img = el('img', { src: BRAND_SRC, alt: BRAND_ALT, height: '36' });
+  img.addEventListener('error', () => { brandMark.missing = true; text(); });
+  box.append(img);
+  return box;
 }
 
 // Link to a ticket in ServiceNow. nav_to.do keeps ServiceNow's normal frame; task.do covers
@@ -52,18 +86,28 @@ function servicenowLink(base, ticket) {
   return `${base}/nav_to.do?uri=${encodeURIComponent('task.do?sysparm_query=number=' + ticket)}`;
 }
 
-// Top navigation for staff pages.
+// Top navigation for staff pages: skip link, Rutgers R, page links, who is signed in.
 async function staffNav(active) {
   const me = await api('/api/me');
   const links = [['/dashboard', 'Queue'], ['/reports', 'Reports']];
   if (me.role === 'admin') links.push(['/admin', 'Admin']);
   const display = me.name || me.email.split('@')[0];
   const initials = display.split(/[\s.]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
-  const bar = el('nav', { class: 'topbar' },
-    el('span', { class: 'brand' }, el('span', { class: 'mark', 'aria-hidden': 'true' }, 'R'), el('span', { class: 'hide-sm' }, 'OIT Walk-ins')),
-    links.map(([href, label]) => el('a', { href, class: href === active ? 'active' : null }, label)),
-    el('span', { class: 'me', title: me.email }, el('span', { class: 'avatar', 'aria-hidden': 'true' }, initials), el('span', { class: 'hide-sm' }, display)),
-    el('button', { onclick: async () => { await api('/api/auth/logout', {}); location.href = '/login'; } }, 'Sign out'));
-  document.body.prepend(bar);
+  const main = document.querySelector('main');
+  if (main && !main.id) main.id = 'main';
+  const header = el('header', {},
+    el('a', { class: 'skip', href: '#main' }, 'Skip to main content'),
+    el('nav', { class: 'topbar', 'aria-label': 'Main' },
+      el('span', { class: 'brand' }, brandMark(), el('span', { class: 'appname hide-sm' }, 'OIT Walk-ins')),
+      links.map(([href, label]) => el('a', { href, class: 'nav', 'aria-current': href === active ? 'page' : null }, label)),
+      el('span', { class: 'me', title: me.email }, el('span', { class: 'avatar', 'aria-hidden': 'true' }, initials), el('span', { class: 'hide-sm' }, display)),
+      el('button', { onclick: async () => { await api('/api/auth/logout', {}); location.href = '/login'; } }, 'Sign out')));
+  document.body.prepend(header);
+  labelEmptyHeaders();
   return me;
+}
+
+// Table columns that hold only buttons get a name for screen readers (WCAG 1.3.1).
+function labelEmptyHeaders() {
+  document.querySelectorAll('th').forEach((th) => { if (!th.textContent.trim()) th.append(el('span', { class: 'sr-only' }, 'Actions')); });
 }

@@ -8,7 +8,8 @@
 <style>
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .bar { display: grid; grid-template-columns: 150px 1fr 40px; gap: 10px; align-items: center; margin: 6px 0; font-size: .9rem; }
-  .bar .track { background: #ebe6de; height: 10px; overflow: hidden; }
+  .bar .track { background: var(--light-gray); height: 10px; overflow: hidden; }
+  .bars { list-style: none; margin: 0; padding: 0; }
   .bar .fill { background: var(--scarlet); height: 100%; border-radius: 0; }
   .bar span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
   @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } .bar { grid-template-columns: 100px 1fr 34px; } }
@@ -22,16 +23,16 @@
       <label class="small" style="margin:0">From <input type="date" id="from"></label>
       <label class="small" style="margin:0">To <input type="date" id="to"></label>
       <button class="primary" type="submit">Update</button>
-      <a class="btn" id="csv">Download CSV</a>
+      <a class="btn" id="csv" download>Download CSV</a>
     </form>
   </div>
   <div class="stats" id="stats"></div>
   <div class="cols">
-    <div class="card"><h3>By location</h3><div id="byLocation"></div></div>
-    <div class="card"><h3>By issue</h3><div id="byIssue"></div></div>
-    <div class="card"><h3>Busiest hours</h3><div id="byHour"></div></div>
-    <div class="card"><h3>By day</h3><div id="byDay"></div></div>
-    <div class="card"><h3>Claimed by consultant</h3><div id="byConsultant"></div></div>
+    <div class="card"><h2 class="h3">By location</h2><div id="byLocation"></div></div>
+    <div class="card"><h2 class="h3">By issue</h2><div id="byIssue"></div></div>
+    <div class="card"><h2 class="h3">Busiest hours</h2><div id="byHour"></div></div>
+    <div class="card"><h2 class="h3">By day</h2><div id="byDay"></div></div>
+    <div class="card"><h2 class="h3">Claimed by consultant</h2><div id="byConsultant"></div></div>
   </div>
 </main>
 <script src="/common.js"></script>
@@ -41,10 +42,11 @@ const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 
 function bars(target, rows, extra) {
   const max = Math.max(1, ...rows.map((r) => r.n));
-  $(target).replaceChildren(...(rows.length ? rows.map((r) => el('div', { class: 'bar' },
-    el('span', { title: r.label }, r.label, extra ? el('div', { class: 'small muted' }, extra(r)) : null),
-    el('div', { class: 'track' }, el('div', { class: 'fill', style: `width:${(r.n / max) * 100}%` })),
-    el('span', {}, r.n))) : [el('p', { class: 'muted' }, 'No data.')]));
+  // A list of label + number. The bar only repeats the number visually, so screen readers skip it.
+  $(target).replaceChildren(...(rows.length ? [el('ul', { class: 'bars', role: 'list' }, rows.map((r) => el('li', { class: 'bar' },
+    el('span', {}, r.label, extra && extra(r) ? el('div', { class: 'small muted' }, extra(r)) : null),
+    el('div', { class: 'track', 'aria-hidden': 'true' }, el('div', { class: 'fill', style: `width:${(r.n / max) * 100}%` })),
+    el('span', {}, el('span', { class: 'sr-only' }, ': '), r.n))))] : [el('p', { class: 'muted' }, 'No data.')]));
 }
 
 async function load() {

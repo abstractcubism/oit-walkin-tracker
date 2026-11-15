@@ -7,26 +7,27 @@
 <link rel="stylesheet" href="/app.css">
 </head>
 <body class="auth-bg">
-<div class="center">
+<main class="center" id="main">
   <div class="card signin">
-    <div class="mark" aria-hidden="true">R</div>
+    <div id="brand"></div>
     <h1>OIT Walk-ins</h1>
     <p class="muted">Consultant sign-in</p>
     <div id="buttons"></div>
     <p class="error" id="err" role="alert"></p>
   </div>
-</div>
+</main>
 <script src="/common.js"></script>
 <script>
 (async () => {
+  document.getElementById('brand').replaceWith(brandMark());
   const params = new URLSearchParams(location.search);
   const next = params.get('next') && params.get('next').startsWith('/') && !params.get('next').startsWith('//') ? params.get('next') : '/setup';
   // Opened from the iPad's hidden staff exit: give an easy way back if it was by mistake.
   // Same for the TV queue screen.
-  const back = { kiosk: ['/kiosk', '← Back to check-in'], tv: ['/tv', '← Back to the queue screen'] }[params.get('from')];
+  const back = { kiosk: ['/kiosk', 'Back to check-in'], tv: ['/tv', 'Back to the queue screen'] }[params.get('from')];
   if (back) {
-    document.querySelector('.signin').append(el('a', { class: 'btn', href: back[0], style: 'margin-top:18px' }, back[1]));
-    // If nobody signs in within a minute, go back on its own.
+    document.querySelector('.signin').append(el('a', { class: 'btn', href: back[0], style: 'margin-top:18px' }, el('span', { 'aria-hidden': 'true' }, '←'), back[1]));
+    // If nobody signs in within a minute, go back on its own. Any tap or key press restarts the minute.
     let idle = setTimeout(() => { location.href = back[0]; }, 60000);
     ['input', 'touchstart', 'click', 'keydown'].forEach((ev) => document.addEventListener(ev, () => {
       clearTimeout(idle); idle = setTimeout(() => { location.href = back[0]; }, 60000);
@@ -60,12 +61,12 @@
     document.head.append(s);
   }
   if (cfg.devLogin) {
-    const input = el('input', { type: 'email', placeholder: 'you@scarletmail.rutgers.edu', style: 'width:100%', 'aria-label': 'Email' });
+    const input = el('input', { id: 'devEmail', type: 'email', autocomplete: 'email', placeholder: 'you@scarletmail.rutgers.edu', style: 'width:100%' });
     box.append(el('hr'), el('p', { class: 'small' }, el('strong', {}, 'Test mode: '), 'sign in by email only. Turn off DEV_LOGIN in production.'),
       el('form', { onsubmit: async (e) => {
         e.preventDefault();
         try { await api('/api/auth/dev', { email: input.value }); location.href = next; } catch (x) { err.textContent = x.message; }
-      } }, input, el('button', { class: 'btn', type: 'submit' }, 'Test sign-in')),
+      } }, el('label', { for: 'devEmail' }, 'Email'), input, el('button', { class: 'btn', type: 'submit' }, 'Test sign-in')),
       el('button', { class: 'btn primary', type: 'button', onclick: async () => {
         try { await api('/api/auth/dev', { skip: true }); location.href = next; } catch (x) { err.textContent = x.message; }
       } }, 'Skip, sign in as test admin'));
