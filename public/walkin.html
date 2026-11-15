@@ -67,6 +67,7 @@ function render(w) {
     actions.push(el('button', { onclick: () => act('unclaim') }, mine ? 'Release' : 'Release claim'));
   }
   if (open) actions.push(el('button', { onclick: () => { if (confirm('Mark this walk-in as left without being helped?')) act('left'); } }, 'Left / no-show'));
+  if (open) actions.push(el('button', { title: 'They sorted it out on their own, e.g. with the self-help link', onclick: () => act('left', { reason: 'self_solved' }) }, 'Fixed it themselves'));
   if (!open) actions.push(el('button', { onclick: () => act('reopen') }, 'Reopen'));
 
   document.getElementById('app').replaceChildren(...[
@@ -86,7 +87,7 @@ function render(w) {
           el('dt', {}, 'Location'), el('dd', {}, w.location),
           el('dt', {}, 'Arrived'), el('dd', {}, fmtDateTime(w.created_at)),
           w.claimed_at ? [el('dt', {}, 'Claimed'), el('dd', {}, `${fmtTime(w.claimed_at)} by ${w.claimed_by_name || w.claimed_by} (waited ${minutesSince(w.created_at, w.claimed_at)} min)`)] : null,
-          w.closed_at ? [el('dt', {}, STATUS[w.status]), el('dd', {}, `${fmtTime(w.closed_at)} by ${w.closed_by_name || w.closed_by}`)] : null)),
+          w.closed_at ? [el('dt', {}, closedLabel(w)), el('dd', {}, `${fmtTime(w.closed_at)} ${w.closed_by ? 'by ' + (w.closed_by_name || w.closed_by) : 'on the iPad'}`)] : null)),
       el('div', { class: 'card' },
         el('form', { class: 'ticket', onsubmit: (e) => { e.preventDefault(); saveTicket(); } },
           el('label', { for: 'ticket' }, 'ServiceNow ticket'),

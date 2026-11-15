@@ -37,6 +37,8 @@ function ago(iso) {
 const who = (w) => w.netid || w.name || '(erased)';
 const STATUS = { waiting: 'Waiting', claimed: 'Claimed', resolved: 'Resolved', left: 'Left' };
 const chip = (s) => el('span', { class: 'chip ' + s }, STATUS[s] || s);
+// "Left", or "Fixed it themselves" when they used the self-help link (or a consultant marked it so).
+const closedLabel = (w) => (w.close_reason === 'self_solved' ? 'Fixed it themselves' : STATUS[w.status] || w.status);
 
 function toast(msg) {
   const t = el('div', { class: 'toast', role: 'status' }, msg);
