@@ -12,7 +12,10 @@
   .tab[aria-pressed="true"] { color: var(--black); border-bottom-color: var(--scarlet); }
   .tab .n { font-family: var(--mono); font-size: .85rem; min-width: 22px; padding: 1px 6px; background: var(--light-gray); color: var(--ink); }
   .tab .n.hot { background: var(--scarlet); color: var(--white); }
-  .sound { margin-left: auto; align-self: center; font-weight: 500; font-size: .85rem; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; padding-left: 16px; margin-bottom: 0; }
+  /* Sound toggle sits at the right end of the "Waiting" line, outside the location tabs. */
+  .qhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+  .qhead h2.sec { margin: 0; }
+  .sound { font-weight: 500; font-size: .9rem; color: var(--ink); display: inline-flex; gap: 8px; align-items: center; margin: 0; min-height: 44px; cursor: pointer; }
 
   h2.sec { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; display: flex; gap: 10px; align-items: baseline; }
   h2.sec b { font-family: var(--mono); color: var(--ink); font-size: 1rem; letter-spacing: 0; }
@@ -54,7 +57,10 @@
 <main>
   <h1 class="sr-only">Walk-in queue</h1>
   <div class="tabs" id="tabs" role="group" aria-label="Show location"></div>
-  <h2 class="sec">Waiting <b id="nOpen">0</b></h2>
+  <div class="qhead">
+    <h2 class="sec">Waiting <b id="nOpen">0</b></h2>
+    <label class="sound"><input type="checkbox" id="sound"> Sound for new walk-ins</label>
+  </div>
   <div class="q" id="open"></div>
   <details id="doneBox">
     <summary><h2 class="sec">Finished today <b id="nDone">0</b></h2></summary>
@@ -146,8 +152,7 @@ function draw() {
       return el('button', { class: 'tab', 'data-focus': 'tab' + id, 'aria-pressed': String(String(prefs.loc || '') === String(id)),
         onclick: () => { prefs.loc = id; savePrefs(); seen = null; lastSig = ''; render(); } }, name,
         el('span', { class: 'n' + (n ? ' hot' : '') }, n, el('span', { class: 'sr-only' }, ' waiting')));
-    }),
-    el('label', { class: 'sound' }, el('input', { type: 'checkbox', 'data-focus': 'sound', checked: !!prefs.sound, onchange: (e) => { prefs.sound = e.target.checked; savePrefs(); } }), 'Sound'));
+    }));
 
   const waiting = open.filter((w) => w.status === 'waiting');
   $('nOpen').textContent = waiting.length;
@@ -172,6 +177,8 @@ async function refresh() {
 
 (async () => {
   me = await staffNav('/dashboard');
+  $('sound').checked = !!prefs.sound;
+  $('sound').onchange = (e) => { prefs.sound = e.target.checked; savePrefs(); };
   locs = await api('/api/locations');
   if (prefs.loc && !locs.some((l) => String(l.id) === String(prefs.loc))) prefs.loc = '';
   await refresh();
