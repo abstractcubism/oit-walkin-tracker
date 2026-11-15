@@ -99,8 +99,8 @@ All three requests are small, and each is independent of the others.
 
 Every screen follows the [Rutgers Visual Identity System](https://communications.rutgers.edu/identity) and WCAG 2.1 AA.
 
-- **Logo:** the official Rutgers R file goes in `public/brand/rutgers-logo.svg` (see `public/brand/README.md`). The app never draws its own version. Until the file is there, "Rutgers University" shows in plain text.
-- **Colors:** only the identity system palette (Rutgers Red `#CC0033`, black, white, and the supporting grays, teal, blue and yellow), all defined in `public/app.css`. Every text color passes 4.5:1 contrast.
+- **Logo:** the official OIT signature (Rutgers R + "Rutgers University, Office of Information Technology") is `public/brand/rutgers-logo.svg`, unedited (see `public/brand/README.md`). The app never draws its own version.
+- **Colors:** the identity system palette (Rutgers Red `#CC0033`, black, white, and the supporting grays, teal, blue and yellow) on a cream page (`#F4F1EC`, allowed as a background), all defined in `public/app.css`. Every text color passes 4.5:1 contrast.
 - **Type:** IBM Plex Sans and Mono. The guide only requires FF Meta Pro inside official signatures, which come as finished files.
 - **Accessibility:** works with a keyboard, VoiceOver and Switch Control, shows a blue focus ring, never uses color alone for meaning, and turns off animation when the device asks for reduced motion (iPad: Settings › Accessibility › Motion › Reduce Motion).
 

@@ -12,7 +12,7 @@
      on any 16:9 screen, and nothing ever scrolls. */
   /* Rutgers Visual Identity System colors only (User Guide p. 22). Text pairs are 4.5:1 or better. */
   :root {
-    --paper: #ffffff;
+    --paper: #f4f1ec;     /* cream: allowed as a background (User Guide p. 32) */
     --ink: #000000;
     --soft: #666666;      /* Mid Gray */
     --rule: #d8d8d8;      /* Gray, rules only */
@@ -119,8 +119,8 @@
   @keyframes called { 0%, 30% { color: var(--scarlet); } }
   #helping .none { font-family: var(--sans); font-size: 2.8vh; font-weight: 400; color: var(--soft); }
 
-  /* Rotating tips: a light gray band with a Rutgers Red edge and an alert icon to catch the eye. */
-  footer { margin-top: 2.4vh; background: var(--shade); border-left: .6vh solid var(--scarlet); padding: 2vh 2vw; display: flex; align-items: center; gap: 1.4vw; }
+  /* Rotating tips: a white band with a Rutgers Red edge and an alert icon to catch the eye. */
+  footer { margin-top: 2.4vh; background: #fff; border-left: .6vh solid var(--scarlet); padding: 2vh 2vw; display: flex; align-items: center; gap: 1.4vw; }
   footer .icon { width: 4.4vh; height: 4.4vh; color: var(--scarlet); }
   #tip { font-size: 3vh; line-height: 1.3; transition: opacity .6s; }
   #tip b { color: var(--dark-red); font-weight: 700; margin-right: .5em; }

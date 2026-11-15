@@ -98,7 +98,7 @@ async function staffNav(active) {
   const header = el('header', {},
     el('a', { class: 'skip', href: '#main' }, 'Skip to main content'),
     el('nav', { class: 'topbar', 'aria-label': 'Main' },
-      el('span', { class: 'brand' }, brandMark(), el('span', { class: 'appname hide-sm' }, 'OIT Walk-ins')),
+      el('span', { class: 'brand' }, brandMark(), el('span', { class: 'appname hide-sm' }, 'Walk-ins')),
       links.map(([href, label]) => el('a', { href, class: 'nav', 'aria-current': href === active ? 'page' : null }, label)),
       el('span', { class: 'me', title: me.email }, el('span', { class: 'avatar', 'aria-hidden': 'true' }, initials), el('span', { class: 'hide-sm' }, display)),
       el('button', { onclick: async () => { await api('/api/auth/logout', {}); location.href = '/login'; } }, 'Sign out')));

@@ -1,5 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap");
-/* Colors are only from the Rutgers Visual Identity System palette (User Guide, January 2026, p. 22).
+/* Colors are from the Rutgers Visual Identity System palette (User Guide, January 2026, p. 22), on a cream page.
    Primary: Rutgers Red, Black, White. Supporting: grays, teal, blue, yellow.
    Every text pairing below meets WCAG 2.1 AA (4.5:1); numbers are noted where it is close. */
 :root {
@@ -15,6 +15,9 @@
   --light-teal: #e3f3ef;
   --blue: #007fac;         /* focus ring: 4.5:1 on white, 3.9:1 on light gray */
   --yellow: #ebb600;       /* accents only, never text */
+  /* Cream page background. Not one of the palette swatches, but the guide allows any background as long as
+     the logo stays in its official colors (p. 32). Every text color above still passes 4.5:1 on it. */
+  --cream: #f4f1ec;
   --light-yellow: #fff6d4;
 
   /* Roles */
@@ -24,7 +27,7 @@
   --muted: var(--mid-gray);
   --line: var(--gray);
   --field: var(--mid-gray); /* input and control borders need 3:1 against the page */
-  --bg: var(--light-gray);
+  --bg: var(--cream);
   --card: var(--white);
   --ok: var(--teal);
   --ok-tint: var(--light-teal);
@@ -64,7 +67,8 @@ h3, h2.h3 { font-size: 1.05rem; }
 .brandmark { display: inline-flex; align-items: center; padding: 9px; margin: -9px; text-decoration: none; color: var(--black); }
 .brandmark img { height: 36px; width: auto; display: block; }
 .brandmark .brand-text { font-weight: 700; font-size: 1.05rem; letter-spacing: .01em; color: var(--black); line-height: 36px; white-space: nowrap; }
-.appname { font-weight: 600; color: var(--ink); padding-left: 16px; margin-left: 18px; border-left: 1px solid var(--gray); line-height: 28px; white-space: nowrap; }
+/* App name sits well clear of the signature, with no rule of its own, so it can't read as part of the logo. */
+.appname { font-weight: 600; color: var(--ink); margin-left: 28px; white-space: nowrap; }
 
 /* top bar: white, so the red-and-black Rutgers R sits on its preferred background */
 .topbar { background: var(--white); color: var(--ink); display: flex; align-items: center; gap: 4px; padding: 0 20px; min-height: 64px; border-bottom: 3px solid var(--scarlet); position: sticky; top: 0; z-index: 5; }

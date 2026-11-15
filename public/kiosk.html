@@ -4,16 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#f4f1ec">
 <title>Check in · OIT</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* Rutgers Visual Identity System colors only (User Guide p. 22): white paper, black ink, Rutgers Red.
+  /* Rutgers Visual Identity System colors (User Guide p. 22) on cream paper: black ink, Rutgers Red.
      Every text color here is 4.5:1 or better on its background (WCAG 1.4.3). */
   :root {
-    --paper: #ffffff;
+    --paper: #f4f1ec;  /* cream: allowed as a background (User Guide p. 32); all text still 4.5:1+ */
     --shade: #efefef;  /* Light Gray */
     --ink: #000000;
     --soft: #666666;   /* Mid Gray: 5.7:1 on white */
@@ -81,10 +81,10 @@
   .side { margin-top: auto; }
   .count { font-family: var(--mono); font-size: .8rem; color: var(--scarlet); }
 
-  /* Not ready yet: light gray with black text. Ready: Rutgers Red with white text. Both 4.5:1 or better. */
+  /* Not ready yet: white with black text. Ready: Rutgers Red with white text. Both 4.5:1 or better. */
   .go { margin-top: 16px; width: 100%; display: flex; align-items: center; justify-content: space-between; padding: clamp(16px, 2.6vh, 22px) 24px;
-    background: var(--shade); color: var(--ink); font-size: 1.4rem; font-weight: 600; border-radius: 2px; transition: background .2s; }
-  .go.ready { color: #fff; }
+    background: #fff; color: var(--ink); border: 1px solid var(--field); font-size: 1.4rem; font-weight: 600; border-radius: 2px; transition: background .2s; }
+  .go.ready { color: #fff; border-color: var(--scarlet); }
   .go .icon { width: 28px; height: 28px; transition: transform .2s; }
   .go.ready { background: var(--scarlet); }
   .go.ready:active .icon { transform: translateX(6px); }
@@ -121,7 +121,7 @@
   @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 
   /* Confirmation: a stub, like the one you'd tear off at a counter */
-  .done { --paper: var(--shade); position: fixed; inset: 0; background: var(--shade); display: grid; place-items: center; z-index: 10; }
+  .done { position: fixed; inset: 0; background: var(--paper); display: grid; place-items: center; z-index: 10; }
   .stub { width: min(520px, 86vw); background: #fff; border: 1px solid var(--rule); padding: 40px 44px 34px; position: relative; animation: rise .35s ease-out; }
   .stub::before, .stub::after { content: ""; position: absolute; left: -1px; right: -1px; height: 12px;
     background: radial-gradient(circle at 8px 0, var(--paper) 7px, transparent 7.5px) 0 0 / 16px 12px repeat-x; }
