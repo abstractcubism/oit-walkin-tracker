@@ -19,7 +19,7 @@
     --scarlet: #cc0033;   /* Rutgers Red */
     --dark-red: #8e0d18;
     --shade: #efefef;     /* Light Gray */
-    --yellow: #ebb600;    /* Yellow */
+    --red-tint: #fbe3e9;  /* light Rutgers Red tint, tip band only */
     --tint: #fff6d4;      /* Light Yellow: the wash behind a new arrival */
     --sans: "IBM Plex Sans", -apple-system, "Helvetica Neue", Arial, sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
@@ -120,12 +120,12 @@
   @keyframes called { 0%, 30% { color: var(--scarlet); } }
   #helping .none { font-family: var(--sans); font-size: 2.8vh; font-weight: 400; color: var(--soft); }
 
-  /* Rotating tips: a black ink band with a Rutgers Red edge. White text is 21:1; the Yellow icon and
-     "Quick tip" label are 11:1 on black. */
-  footer { margin-top: 2.4vh; background: #000; color: #fff; border-left: .8vh solid var(--scarlet); padding: 2vh 2vw; display: flex; align-items: center; gap: 1.4vw; }
-  footer .icon { width: 4.4vh; height: 4.4vh; color: var(--yellow); }
+  /* Rotating tips: a light red band (a background tint, allowed by the guide) with a Rutgers Red edge
+     and icon. Black text and the Dark Red "Quick tip" label both pass 4.5:1 on it. */
+  footer { margin-top: 2.4vh; background: var(--red-tint); border-left: .6vh solid var(--scarlet); padding: 2vh 2vw; display: flex; align-items: center; gap: 1.4vw; }
+  footer .icon { width: 4.4vh; height: 4.4vh; color: var(--scarlet); }
   #tip { font-size: 3vh; line-height: 1.3; transition: opacity .6s; }
-  #tip b { color: var(--yellow); font-weight: 700; margin-right: .5em; }
+  #tip b { color: var(--dark-red); font-weight: 700; margin-right: .5em; }
   #tip.out { opacity: 0; }
   footer.pop .icon { animation: pop .6s ease-out; }
   @keyframes pop { 40% { transform: scale(1.25) rotate(-8deg); } }
