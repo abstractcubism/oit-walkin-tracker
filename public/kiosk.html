@@ -154,6 +154,7 @@
     padding: max(20px, env(safe-area-inset-top)) clamp(24px, 4vw, 52px) max(20px, env(safe-area-inset-bottom)); }
   .consent .top { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; padding-bottom: 12px; border-bottom: 2px solid var(--ink); }
   .consent h1 { font-size: clamp(1.4rem, 3.4vh, 1.9rem); line-height: 1.15; letter-spacing: -.01em; margin-top: 2px; }
+  .consent h1 .req { color: var(--scarlet); }
   .consent .no { font-family: var(--mono); color: var(--soft); font-size: 1rem; white-space: nowrap; }
   .consent .body { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); min-height: 0; }
   .consent .terms { padding: 16px clamp(20px, 3vw, 40px) 0 0; border-right: 1px solid var(--rule); min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
@@ -266,7 +267,7 @@
 
 <div class="consent hidden" id="consentView" role="dialog" aria-modal="true" aria-labelledby="consentHead">
   <div class="top">
-    <h1 id="consentHead">Permission to work on your device</h1>
+    <h1 id="consentHead"><span class="req">Required:</span> permission to work on your device</h1>
     <div class="no" id="consentNo"></div>
   </div>
   <div class="body">
