@@ -3,7 +3,7 @@
 async function api(path, body) {
   const opts = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
   const r = await fetch(path, opts);
-  if (r.status === 401 && !location.pathname.startsWith('/kiosk')) {
+  if (r.status === 401 && !location.pathname.startsWith('/kiosk') && !location.pathname.startsWith('/tv')) {
     location.href = '/login?next=' + encodeURIComponent(location.pathname + location.search);
     throw new Error('Signed out');
   }

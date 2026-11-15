@@ -33,10 +33,11 @@ const bad = (res, msg, code = 400) => res.status(code).json({ error: msg });
 const clean = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
 // ---------- Pages ----------
-app.get('/', (req, res) => res.redirect(req.device && !req.user ? '/kiosk' : '/setup'));
+app.get('/', (req, res) => res.redirect(req.user ? '/setup' : req.device ? '/kiosk' : req.display ? '/tv' : '/setup'));
 app.get('/login', page('login.html'));
 app.get('/setup', auth.requireUser, page('setup.html'));
 app.get('/kiosk', auth.requireDevice, page('kiosk.html'));
+app.get('/tv', auth.requireDisplay, page('tv.html'));
 app.get('/dashboard', auth.requireUser, page('dashboard.html'));
 app.get('/w/:id', auth.requireUser, page('walkin.html'));
 app.get('/reports', auth.requireUser, page('reports.html'));
@@ -109,6 +110,7 @@ app.get('/api/me', auth.requireUser, (req, res) => {
   res.json({
     email: req.user.email, name: req.user.name, role: req.user.role,
     device: req.device ? { location: req.device.location_name } : null,
+    display: req.display ? { location: req.display.location_name } : null,
     servicenowUrl: config.servicenowUrl,
   });
 });
@@ -125,7 +127,7 @@ app.post('/api/kiosk/setup', auth.requireUser, (req, res) => {
   if (!loc) return bad(res, 'Pick a location.');
   const token = auth.newToken();
   if (req.device) db.prepare('UPDATE devices SET revoked_at = ? WHERE id = ?').run(now(), req.device.id);
-  db.prepare('INSERT INTO devices (token_hash, location_id, created_by) VALUES (?, ?, ?)').run(auth.sha256(token), loc.id, req.user.email);
+  db.prepare("INSERT INTO devices (token_hash, location_id, created_by, kind) VALUES (?, ?, ?, 'kiosk')").run(auth.sha256(token), loc.id, req.user.email);
   auth.setCookie(res, 'kiosk', token, 400 * 24 * 3600);
   auth.endSession(req, res);
   res.json({ ok: true });
@@ -183,6 +185,54 @@ app.post('/api/kiosk/walkins', auth.requireDevice, (req, res) => {
       issueType || null, description || null, slack.enabled() ? 'pending' : 'off');
   slack.kick();
   res.json({ ok: true, id: Number(r.lastInsertRowid) });
+});
+
+// ---------- TV queue screen ----------
+// Same idea as the iPad: a consultant links the TV's browser to a location, gets signed out,
+// and the TV keeps a token that can only read that location's public queue.
+app.post('/api/tv/setup', auth.requireUser, (req, res) => {
+  const loc = db.prepare('SELECT * FROM locations WHERE id = ? AND active = 1').get(Number(req.body.location_id));
+  if (!loc) return bad(res, 'Pick a location.');
+  const token = auth.newToken();
+  if (req.display) db.prepare('UPDATE devices SET revoked_at = ? WHERE id = ?').run(now(), req.display.id);
+  db.prepare("INSERT INTO devices (token_hash, location_id, created_by, kind) VALUES (?, ?, ?, 'display')").run(auth.sha256(token), loc.id, req.user.email);
+  auth.setCookie(res, 'tv', token, 400 * 24 * 3600);
+  auth.endSession(req, res);
+  res.json({ ok: true });
+});
+
+app.post('/api/tv/unlink', auth.requireUser, (req, res) => {
+  if (req.display) db.prepare('UPDATE devices SET revoked_at = ? WHERE id = ?').run(now(), req.display.id);
+  auth.setCookie(res, 'tv', '', 0);
+  res.json({ ok: true });
+});
+
+// The TV is in a public waiting area, so this sends only what's safe to show to a room:
+// the check-in number from the walk-in's confirmation stub, a short hint (first two letters
+// of the NetID, or first initial of the name) and the check-in time. Never the full NetID,
+// name, email or issue. TV_HINT=none drops the hint too.
+const TV_WINDOW_HOURS = 12; // ignore anything left open from an earlier day
+const tvHint = (w) => {
+  if (config.tvHint === 'none') return '';
+  if (w.netid) return w.netid.slice(0, 2);
+  if (w.name) return w.name.trim().charAt(0).toUpperCase() + '.';
+  return '';
+};
+
+app.get('/api/tv/queue', auth.requireDisplay, (req, res) => {
+  db.prepare('UPDATE devices SET last_seen = ? WHERE id = ?').run(now(), req.display.id);
+  const since = new Date(Date.now() - TV_WINDOW_HOURS * 3600e3).toISOString();
+  const rows = db.prepare(`SELECT id, netid, name, status, created_at, claimed_at FROM walkins
+                           WHERE location_id = ? AND status IN ('waiting','claimed') AND created_at >= ?
+                           ORDER BY created_at, id`).all(req.display.location_id, since);
+  const pick = (w) => ({ no: w.id, hint: tvHint(w), at: w.created_at });
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({
+    location: req.display.location_name,
+    waiting: rows.filter((w) => w.status === 'waiting').map(pick),
+    // Most recently claimed first, so a walk-in can see their number was called.
+    helping: rows.filter((w) => w.status === 'claimed').sort((a, b) => b.claimed_at.localeCompare(a.claimed_at)).map(pick),
+  });
 });
 
 // ---------- Dashboard ----------
@@ -318,7 +368,7 @@ app.get('/api/admin', auth.requireAdmin, (req, res) => {
     users: db.prepare('SELECT email, name, role, active FROM users ORDER BY active DESC, role, email').all(),
     locations: db.prepare('SELECT * FROM locations ORDER BY active DESC, campus, name').all(),
     issues: db.prepare('SELECT * FROM issue_types ORDER BY active DESC, sort, label').all(),
-    devices: db.prepare(`SELECT d.id, l.name AS location, d.created_by, d.created_at, d.last_seen FROM devices d
+    devices: db.prepare(`SELECT d.id, d.kind, l.name AS location, d.created_by, d.created_at, d.last_seen FROM devices d
                          JOIN locations l ON l.id = d.location_id WHERE d.revoked_at IS NULL ORDER BY d.created_at DESC`).all(),
     adminEmails: config.adminEmails,
     retentionDays: config.retentionDays,

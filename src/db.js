@@ -110,6 +110,9 @@ if (!db.prepare("SELECT 1 FROM meta WHERE key = 'wifi_options'").get()) {
   db.prepare("INSERT INTO meta (key, value) VALUES ('wifi_options', '1')").run();
 }
 
+// A linked device is either a check-in iPad ('kiosk') or a read-only TV queue screen ('display').
+try { db.exec("ALTER TABLE devices ADD COLUMN kind TEXT NOT NULL DEFAULT 'kiosk'"); } catch { /* already there */ }
+
 // "Wi-Fi" + "eduroam,RUatHome" -> ['eduroam', 'RUatHome']
 const parseOptions = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
 
