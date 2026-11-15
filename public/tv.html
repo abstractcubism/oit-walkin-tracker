@@ -35,7 +35,7 @@
   .word::after { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; width: 0; background: var(--scarlet); }
   .word.holding::after { width: 100%; transition: width 3s linear; }
   .place { font-size: 4.6vh; font-weight: 600; letter-spacing: -.01em; }
-  .clock { margin-left: auto; font-family: var(--mono); font-size: 3.4vh; color: var(--soft); }
+  .clock { order: 1; font-family: var(--mono); font-size: 3.4vh; color: var(--soft); }
   .offline { font-size: 2vh; color: var(--scarlet); font-weight: 600; display: flex; align-items: center; gap: .6em; }
   .offline::before { content: ""; width: 1.1vh; height: 1.1vh; border-radius: 50%; background: currentColor; animation: blink 1.4s infinite; }
   @keyframes blink { 50% { opacity: .25; } }
@@ -104,16 +104,19 @@
   #helping .called { animation: called 3s ease-out; }
   @keyframes called { 0%, 30% { color: var(--scarlet); } }
   #helping .none { font-family: var(--sans); font-size: 2.8vh; font-weight: 400; color: var(--soft); }
-  .tally { padding-top: 3vh; min-height: 0; overflow: hidden; }
-  .tally .label b { font-family: var(--mono); color: var(--ink); font-size: 2.6vh; letter-spacing: 0; margin-left: .6em; }
-  #marks { display: flex; flex-wrap: wrap; gap: 1.6vh 1.6vw; margin-top: 2vh; color: var(--ink); }
-  #marks svg { height: 4.4vh; width: auto; }
-  #marks svg.fresh { animation: called 4s ease-out; }
 
-  footer { padding-top: 2.2vh; border-top: 1px solid var(--rule); display: flex; align-items: baseline; gap: 2vw; min-height: 7vh; }
-  footer .label { white-space: nowrap; }
-  #tip { font-size: 2.8vh; transition: opacity .6s; }
+  /* Rotating tips: a light scarlet band with an alert icon to catch the eye. */
+  footer { margin-top: 2.4vh; background: var(--tint); border-left: .6vh solid var(--scarlet); padding: 2vh 2vw; display: flex; align-items: center; gap: 1.4vw; }
+  footer .icon { width: 4.4vh; height: 4.4vh; color: var(--scarlet); }
+  #tip { font-size: 3vh; line-height: 1.3; transition: opacity .6s; }
+  #tip b { color: var(--scarlet); font-weight: 700; margin-right: .5em; }
   #tip.out { opacity: 0; }
+  footer.pop .icon { animation: pop .6s ease-out; }
+  @keyframes pop { 40% { transform: scale(1.25) rotate(-8deg); } }
+
+  /* For supervisors: small, out of the way. */
+  .helped { order: 0; margin-left: auto; font-size: 1.9vh; color: var(--soft); white-space: nowrap; }
+  .helped b { font-family: var(--mono); color: var(--ink); font-weight: 600; }
 
   .unlinked { position: fixed; inset: 0; background: var(--paper); display: grid; place-items: center; text-align: center; padding: 6vw; }
   .unlinked b { display: block; font-size: 5vh; margin-bottom: 2vh; }
@@ -129,6 +132,7 @@
     <div class="place" id="place"></div>
     <div class="offline hidden" id="offline">Reconnecting</div>
     <div class="clock" id="clock"></div>
+    <div class="helped"><b id="helped">0</b> helped today</div>
   </header>
 
   <main>
@@ -142,15 +146,11 @@
         <div class="label">With a consultant</div>
         <div id="helping"></div>
       </div>
-      <div class="tally">
-        <div class="label">Helped today<b id="helped">0</b></div>
-        <div id="marks"></div>
-      </div>
     </section>
   </main>
 
-  <footer>
-    <span class="label">While you wait</span>
+  <footer id="tipBox">
+    <span id="tipIcon"></span>
     <span id="tip"></span>
   </footer>
 </div>
@@ -189,32 +189,23 @@ const tick = () => { $('clock').textContent = new Date().toLocaleTimeString([], 
 tick(); setInterval(tick, 10000);
 
 (() => {
+  $('tipIcon').replaceWith(icon('circle-alert'));
   let i = Math.floor(Math.random() * TIPS.length);
-  $('tip').textContent = TIPS[i];
+  const show = () => $('tip').replaceChildren(el('b', {}, 'Quick tip'), TIPS[i]);
+  show();
   setInterval(() => {
     $('tip').classList.add('out');
-    setTimeout(() => { i = (i + 1) % TIPS.length; $('tip').textContent = TIPS[i]; $('tip').classList.remove('out'); }, 600);
+    setTimeout(() => {
+      i = (i + 1) % TIPS.length; show(); $('tip').classList.remove('out');
+      $('tipBox').classList.remove('pop'); void $('tipBox').offsetWidth; $('tipBox').classList.add('pop');
+    }, 600);
   }, 12000);
 })();
-
-// One tally group (up to five strokes, the fifth crossing the other four).
-function tallyGroup(n, fresh) {
-  const ns = 'http://www.w3.org/2000/svg';
-  const s = document.createElementNS(ns, 'svg');
-  s.setAttribute('viewBox', '0 0 34 30');
-  s.setAttribute('class', fresh ? 'fresh' : '');
-  let d = '';
-  for (let k = 0; k < Math.min(n, 4); k++) d += `M${4 + k * 7} 3V27`;
-  if (n >= 5) d += 'M1 22L32 7';
-  s.innerHTML = `<path d="${d}" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/>`;
-  return s;
-}
 
 let first = true;
 let shownIds = new Set();
 let helpingIds = new Set();
 let lastCount = null;
-let lastHelped = null;
 
 function rowFor(w, cls) {
   const calling = !!w.by;
@@ -276,16 +267,7 @@ function render(q) {
     : [el('div', { class: 'none' }, 'Nobody right now')]));
   helpingIds = new Set(q.helping.map((w) => w.id));
 
-  // Tally marks for everyone helped today; the newest group is scarlet for a moment.
-  const helped = q.helpedToday;
-  $('helped').textContent = helped;
-  if (helped !== lastHelped) {
-    const groups = [];
-    const showMax = Math.min(helped, 60);
-    for (let k = 0; k < showMax; k += 5) groups.push(tallyGroup(Math.min(5, showMax - k), !first && k + 5 >= showMax && helped > (lastHelped || 0)));
-    $('marks').replaceChildren(...groups);
-    lastHelped = helped;
-  }
+  $('helped').textContent = q.helpedToday;
   first = false;
 }
 
