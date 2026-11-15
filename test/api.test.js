@@ -225,7 +225,15 @@ test('TV queue screen shows the location queue, and cannot submit', async () => 
   assert.deepEqual(q.waiting.map((w) => w.issue), ['Canvas', 'Something else']);
   assert.equal(q.waiting[0].desc, 'Can not see my course');
   assert.ok(q.waiting[1].desc.length <= 60, 'description is shortened');
-  assert.deepEqual(q.helping.map((w) => w.who), ['tuv456']);
+  // Just claimed: lit up as "calling" with the consultant's first name, then with a consultant.
+  assert.deepEqual(q.calling.map((w) => [w.who, w.by]), [['tuv456', 'boss']]);
+  assert.equal(q.helping.length, 0);
+  const { db } = require('../src/db');
+  db.prepare('UPDATE walkins SET claimed_at = ? WHERE id = ?').run(new Date(Date.now() - 3 * 60e3).toISOString(), c);
+  db.prepare("UPDATE users SET name = 'Alex Kim' WHERE email = 'boss@oit.rutgers.edu'").run();
+  const q2 = (await tv('GET', '/api/tv/queue')).body;
+  assert.equal(q2.calling.length, 0);
+  assert.deepEqual(q2.helping.map((w) => [w.who, w.by]), [['tuv456', 'Alex']]);
   assert.ok(q.helpedToday >= 1);
   assert.ok(!JSON.stringify(q).includes('jordan@example.com'), 'never shows email');
 

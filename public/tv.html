@@ -70,6 +70,14 @@
   .row.leave { animation: leave .6s ease-in forwards; overflow: hidden; }
   @keyframes leave { to { opacity: 0; transform: translateX(-4vw); max-height: 0; padding-top: 0; padding-bottom: 0; border-bottom-width: 0; } }
   .row.leave { max-height: 14vh; }
+  /* Just claimed: the consultant is coming to find them. Lit up red until it moves across. */
+  .row.calling { background: var(--scarlet); color: #fff; padding-left: 1.6vw; padding-right: 1.6vw; padding-top: 3.6vh; border-bottom-color: var(--paper); animation: glow 2s ease-in-out infinite; }
+  .row.calling.lit { animation: light .9s ease-out, glow 2s ease-in-out .9s infinite; }
+  .row.calling::before { content: "Now calling"; position: absolute; top: .6vh; left: 1.6vw; font-size: 1.5vh; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #fff; opacity: .85; }
+  .row.calling .who, .row.calling .issue .icon, .row.calling .issue small, .row.calling .at { color: #fff; }
+  .row.calling .issue small { opacity: .85; }
+  @keyframes glow { 50% { background: #e0103f; } }
+  @keyframes light { from { background: var(--paper); color: var(--ink); transform: scale(.98); } }
   .more { padding: 2vh 0 0; font-size: 2.6vh; color: var(--soft); }
   .empty { padding: 7vh 0 0; }
   .empty b { display: block; font-size: 7vh; font-weight: 600; letter-spacing: -.02em; }
@@ -82,9 +90,18 @@
   @keyframes bump { 40% { transform: translateY(-1.2vh); } }
   .count span { display: block; font-size: 3.2vh; font-weight: 500; }
   .helping { padding: 3vh 0; border-bottom: 1px solid var(--rule); }
-  #helping { display: flex; flex-wrap: wrap; gap: 1vh 2.2vw; margin-top: 1.6vh; min-height: 5vh; }
-  #helping div { font-family: var(--mono); font-size: 4vh; font-weight: 600; }
-  #helping div.called { animation: called 3s ease-out; }
+  .helping { min-height: 0; overflow: hidden; }
+  #helping { display: grid; gap: 1.1vh; margin-top: 1.6vh; }
+  #helping .pair { display: flex; align-items: baseline; gap: .8vw; white-space: nowrap; overflow: hidden; }
+  #helping .pair b { font-family: var(--mono); font-size: 3.6vh; font-weight: 600; }
+  #helping .pair span { font-size: 2.6vh; color: var(--soft); overflow: hidden; text-overflow: ellipsis; }
+  #helping .pair span em { font-style: normal; color: var(--ink); font-weight: 600; }
+  /* Lots of consultants on: two columns, smaller type. */
+  #helping.dense { grid-template-columns: 1fr 1fr; column-gap: 2vw; gap: .8vh 2vw; }
+  #helping.dense .pair b { font-size: 2.8vh; }
+  #helping.dense .pair span { font-size: 2.1vh; }
+  #helping .more { padding: .4vh 0 0; font-size: 2.2vh; }
+  #helping .called { animation: called 3s ease-out; }
   @keyframes called { 0%, 30% { color: var(--scarlet); } }
   #helping .none { font-family: var(--sans); font-size: 2.8vh; font-weight: 400; color: var(--soft); }
   .tally { padding-top: 3vh; min-height: 0; overflow: hidden; }
@@ -199,12 +216,15 @@ let helpingIds = new Set();
 let lastCount = null;
 let lastHelped = null;
 
-function rowFor(w, i) {
-  return el('div', { class: 'row' + (i === 0 ? ' next' : ''), 'data-id': w.id },
+function rowFor(w, cls) {
+  const calling = !!w.by;
+  return el('div', { class: 'row ' + cls, 'data-id': w.id },
     el('span', { class: 'who' + (/\s/.test(w.who) ? ' name' : '') }, w.who),
-    el('span', { class: 'issue' }, icon(iconFor(w.issue)), el('div', {}, el('b', {}, w.issue), w.desc ? el('small', {}, w.desc) : null)),
+    el('span', { class: 'issue' }, icon(calling ? 'user-round' : iconFor(w.issue)),
+      el('div', {}, el('b', {}, calling ? `${w.by} is coming to find you` : w.issue), calling ? el('small', {}, w.issue) : w.desc ? el('small', {}, w.desc) : null)),
     el('span', { class: 'at' }, fmtTime(w.at)));
 }
+let callingIds = new Set();
 
 function render(q) {
   $('place').textContent = q.location;
@@ -217,20 +237,26 @@ function render(q) {
   $('count').classList.toggle('some', n > 0);
   $('countText').textContent = n === 1 ? 'person waiting' : 'people waiting';
 
-  // Rows that left the queue fold away; new ones slide in.
-  const shown = n > MAX_ROWS ? q.waiting.slice(0, MAX_ROWS - 1) : q.waiting;
+  // Just-claimed walk-ins sit lit up at the top, then everyone waiting in order.
+  // Rows that leave the list fold away; new check-ins slide in.
+  const list = [...q.calling, ...q.waiting];
+  const shown = list.length > MAX_ROWS ? list.slice(0, MAX_ROWS - 1) : list;
   const nowIds = new Set(shown.map((w) => w.id));
+  const allIds = new Set(list.map((w) => w.id));
   const leaving = first ? [] : [...$('rows').querySelectorAll('.row')]
-    .filter((r) => !nowIds.has(Number(r.dataset.id)) && !q.waiting.some((w) => w.id === Number(r.dataset.id)))
-    .map((r) => { r.classList.remove('enter', 'next'); r.classList.add('leave'); return r; });
+    .filter((r) => !allIds.has(Number(r.dataset.id)))
+    .map((r) => { r.classList.remove('enter', 'next', 'lit'); r.classList.add('leave'); return r; });
   const rows = shown.map((w, i) => {
-    const r = rowFor(w, i);
-    if (!first && !shownIds.has(w.id)) r.classList.add('enter');
+    const r = rowFor(w, w.by ? 'calling' : i === q.calling.length ? 'next' : '');
+    if (!first && w.by && !callingIds.has(w.id)) r.classList.add('lit');
+    else if (!first && !shownIds.has(w.id)) r.classList.add('enter');
     return r;
   });
   shownIds = nowIds;
-  const tail = n > shown.length ? [el('div', { class: 'more' }, `and ${n - shown.length} more after them`)] : [];
-  const draw = () => $('rows').replaceChildren(...(n ? [...rows, ...tail]
+  callingIds = new Set(q.calling.map((w) => w.id));
+  const hidden = list.length - shown.length;
+  const tail = hidden ? [el('div', { class: 'more' }, `and ${hidden} more after them`)] : [];
+  const draw = () => $('rows').replaceChildren(...(list.length ? [...rows, ...tail]
     : [el('div', { class: 'empty' }, el('b', {}, 'No wait right now.'), el('span', {}, 'Check in at the iPad and a consultant will be right with you.'))]));
   if (leaving.length) {
     // Let the leaving rows finish folding before redrawing.
@@ -238,9 +264,15 @@ function render(q) {
     setTimeout(() => { if (lastQ === q) draw(); }, 650);
   } else draw();
 
-  const h = q.helping.slice(0, 8);
+  // "jd4521 with Alex". Two smaller columns when lots of consultants are working walk-ins.
+  const dense = q.helping.length > 4;
+  const max = dense ? 12 : 4;
+  const h = q.helping.length > max ? q.helping.slice(0, max - 1) : q.helping;
+  $('helping').classList.toggle('dense', dense);
   $('helping').replaceChildren(...(h.length
-    ? h.map((w) => el('div', { class: !first && !helpingIds.has(w.id) ? 'called' : '' }, w.who))
+    ? [...h.map((w) => el('div', { class: 'pair' + (!first && !helpingIds.has(w.id) ? ' called' : '') },
+        el('b', {}, w.who), el('span', {}, 'with ', el('em', {}, w.by)))),
+      q.helping.length > h.length ? el('div', { class: 'more' }, `and ${q.helping.length - h.length} more`) : null].filter(Boolean)
     : [el('div', { class: 'none' }, 'Nobody right now')]));
   helpingIds = new Set(q.helping.map((w) => w.id));
 

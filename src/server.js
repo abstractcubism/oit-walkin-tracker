@@ -225,16 +225,23 @@ app.get('/api/tv/queue', auth.requireDisplay, (req, res) => {
   const since = new Date(Date.now() - TV_WINDOW_HOURS * 3600e3).toISOString();
   // "Helped today" starts at the TV's local midnight, which the browser sends.
   const today = req.query.since && !isNaN(Date.parse(req.query.since)) ? new Date(req.query.since).toISOString() : since;
-  const rows = db.prepare(`SELECT id, netid, name, issue_type, description, status, created_at, claimed_at FROM walkins
-                           WHERE location_id = ? AND status IN ('waiting','claimed') AND created_at >= ?
-                           ORDER BY created_at, id`).all(req.display.location_id, since);
+  const rows = db.prepare(`SELECT w.id, w.netid, w.name, w.issue_type, w.description, w.status, w.created_at, w.claimed_at,
+                                  w.claimed_by, u.name AS claimed_by_name FROM walkins w LEFT JOIN users u ON u.email = w.claimed_by
+                           WHERE w.location_id = ? AND w.status IN ('waiting','claimed') AND w.created_at >= ?
+                           ORDER BY w.created_at, w.id`).all(req.display.location_id, since);
+  // Consultant's first name only, e.g. "Alex" (falls back to the start of their email).
+  const by = (w) => String(w.claimed_by_name || '').trim().split(/\s+/)[0] || String(w.claimed_by || '').split(/[@.]/)[0];
+  const callingSince = Date.now() - config.tvCallingMinutes * 60e3;
+  const claimed = rows.filter((w) => w.status === 'claimed').sort((a, b) => b.claimed_at.localeCompare(a.claimed_at));
   const pick = (w) => ({ id: w.id, who: tvWho(w), issue: w.issue_type || 'Something else', desc: tvDesc(w.description), at: w.created_at });
   res.setHeader('Cache-Control', 'no-store');
   res.json({
     location: req.display.location_name,
+    // Just claimed: lit up at the top of the list while the consultant comes to find them.
+    calling: claimed.filter((w) => Date.parse(w.claimed_at) >= callingSince).map((w) => ({ ...pick(w), by: by(w) })),
     waiting: rows.filter((w) => w.status === 'waiting').map(pick),
-    // Most recently claimed first, so a walk-in can see they were called.
-    helping: rows.filter((w) => w.status === 'claimed').sort((a, b) => b.claimed_at.localeCompare(a.claimed_at)).map((w) => ({ id: w.id, who: tvWho(w) })),
+    // Claimed a while ago: with their consultant now. Most recent first.
+    helping: claimed.filter((w) => Date.parse(w.claimed_at) < callingSince).map((w) => ({ id: w.id, who: tvWho(w), by: by(w) })),
     helpedToday: db.prepare("SELECT COUNT(*) AS n FROM walkins WHERE location_id = ? AND status = 'resolved' AND closed_at >= ?").get(req.display.location_id, today).n,
   });
 });
