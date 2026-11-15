@@ -58,7 +58,11 @@ async function post(path, body) {
 
 async function load() {
   const d = await api('/api/admin');
-  $('summary').textContent = `Personal details are erased after ${d.retentionDays} days. Slack posting is ${d.slack ? 'on' : 'off'}.`;
+  const sh = d.sheets;
+  const sheetText = sh.mode === 'off' ? 'Google Sheet copy is off.'
+    : sh.lastError ? `Google Sheet copy is failing (${sh.lastError}); ${sh.queued} walk-ins are waiting and will be sent when it reconnects.`
+    : `Google Sheet copy is on (${sh.target}, tab "${sh.tab}")${sh.queued ? `, ${sh.queued} waiting to send` : ', up to date'}.`;
+  $('summary').textContent = `Personal details are erased after ${d.retentionDays} days. Slack posting is ${d.slack ? 'on' : 'off'}. ${sheetText}`;
 
   $('users').replaceChildren(...d.users.map((u) => {
     const fixed = d.adminEmails.includes(u.email);

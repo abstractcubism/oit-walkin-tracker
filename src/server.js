@@ -4,6 +4,7 @@ const config = require('./config');
 const { db, now, tx, parseOptions } = require('./db');
 const auth = require('./auth');
 const slack = require('./slack');
+const sheets = require('./sheets');
 const { startRetention } = require('./retention');
 
 const app = express();
@@ -323,6 +324,7 @@ app.get('/api/admin', auth.requireAdmin, (req, res) => {
     adminEmails: config.adminEmails,
     retentionDays: config.retentionDays,
     slack: slack.enabled(),
+    sheets: sheets.status(),
   });
 });
 
@@ -387,6 +389,7 @@ app.use((err, req, res, next) => {
 if (require.main === module) {
   app.listen(config.port, () => console.log(`Walk-in tracker on ${config.baseUrl} (port ${config.port})`));
   slack.start();
+  sheets.start();
   startRetention();
 }
 

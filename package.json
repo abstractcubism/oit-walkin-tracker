@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning src/server.js",
     "dev": "node scripts/dev.js",
+    "sheets:check": "node --disable-warning=ExperimentalWarning scripts/sheets-check.js",
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
   },
   "dependencies": {

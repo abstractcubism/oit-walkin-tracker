@@ -35,6 +35,7 @@ Copy `.env.example` to `.env` and fill it in. Every setting is explained there. 
 | `REQUIRE_TICKET` | A ticket number is required before resolving (default true) |
 | `SERVICENOW_URL` | ServiceNow address used to turn ticket numbers into links (default `https://ithelp.rutgers.edu`) |
 | `SLACK_WEBHOOK_URL` | Turns on Slack posting |
+| `SHEETS_MODE` | Turns on the Google Sheet copy of walk-ins (`apps-script` or `service-account`). See below. |
 
 You can turn on Google, Microsoft or both. Each one appears on the sign-in page once its keys are set.
 
@@ -56,6 +57,28 @@ All three requests are small, and each is independent of the others.
 **Slack incoming webhook**
 - A Slack app with a single feature, *Incoming Webhooks*, added to one channel
 - It can only post to that channel. It can't read messages, list users or do anything else.
+
+## Google Sheet copy (optional)
+
+Every walk-in can be copied to a tab in a Google Sheet, so other OIT tools (like the consultant incident tracker) can use the same data. It's off by default.
+
+**How it works**
+- The app's own database stays the working copy. The iPads, queue, TV screen and dashboard read from it, so they stay fast and never use up Google's rate limits, no matter how many screens are open.
+- When a walk-in is created or changes (claimed, ticket added, resolved, erased by retention), its ID goes on a local queue. Every few seconds the queue is sent to the Sheet in one batch, and each walk-in's row is found by the ID in column A and overwritten, so there's one row per walk-in.
+- If Google can't be reached, changes stay queued and the app retries (5 seconds, then longer, up to every 5 minutes). Nothing is lost. The Admin page shows whether the copy is up to date or failing.
+- The tab is protected: people can view and filter it, but only the app's account (and the Sheet owner) can edit, so a stray sort or delete can't break it.
+- Only walk-ins are copied. Sign-in sessions, iPad link tokens and the consultant list never leave the server.
+- When retention erases a walk-in's NetID, name, email, description and notes, those cells are blanked in the Sheet too. **Google keeps old values in the Sheet's version history**, so check this against OIT's retention rules. `SHEETS_INCLUDE_PERSONAL=false` keeps personal details out of the Sheet entirely.
+- When sync is first turned on, or pointed at a different Sheet or tab, all existing walk-ins are sent.
+
+**Two ways to connect.** Pick whichever the other OIT app uses, then run `npm run sheets:check` to test it. The check creates the tab and header row, then reads the tab back.
+
+| | `apps-script` | `service-account` |
+|---|---|---|
+| What it is | A small script inside the Sheet (`apps-script/Code.gs`), deployed as a web app | The Google Sheets API with a Google Cloud service account |
+| What to request | Nothing new if you own or can edit the Sheet. The web app must allow access by "Anyone", and a shared secret protects it. | A Google Cloud project with the Sheets API on, a service account and its JSON key. The Sheet is shared with the service account's email. |
+| Settings | `SHEETS_APPS_SCRIPT_URL`, `SHEETS_APPS_SCRIPT_SECRET` | `SHEETS_SPREADSHEET_ID`, `SHEETS_SA_KEY_FILE` |
+| Limits | Apps Script quotas (daily run time, about 30 runs at once). The app makes one call per batch, at most one batch every few seconds. | Sheets API (60 writes a minute per account). The app makes 2 to 3 calls per batch. |
 
 ## Deploy on the OIT server
 

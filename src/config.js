@@ -45,6 +45,19 @@ const config = {
 
   // Slack incoming webhook. Leave empty to turn Slack posting off.
   slackWebhookUrl: process.env.SLACK_WEBHOOK_URL || '',
+
+  // Google Sheet copy of walk-ins (see src/sheets/). Off unless SHEETS_MODE is set.
+  sheets: {
+    mode: (process.env.SHEETS_MODE || 'off').trim().toLowerCase(), // off | apps-script | service-account
+    tab: process.env.SHEETS_TAB || 'Walk-ins',
+    // false leaves NetID, name, email, description and notes out of the Sheet.
+    includePersonal: process.env.SHEETS_INCLUDE_PERSONAL !== 'false',
+    pushSeconds: Number(process.env.SHEETS_PUSH_SECONDS || 5),
+    appsScriptUrl: process.env.SHEETS_APPS_SCRIPT_URL || '',
+    appsScriptSecret: process.env.SHEETS_APPS_SCRIPT_SECRET || '',
+    spreadsheetId: process.env.SHEETS_SPREADSHEET_ID || '',
+    keyFile: process.env.SHEETS_SA_KEY_FILE || '',
+  },
 };
 
 // Every domain either provider accepts (used when an admin adds someone to the consultant list).
