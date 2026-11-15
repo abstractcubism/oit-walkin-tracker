@@ -120,8 +120,7 @@
   .stub.wide .main-stub { display: flex; flex-direction: column; }
   .stub.wide .timer { grid-column: 1 / -1; }
   .help { border-left: 1px dashed var(--rule); padding-left: 40px; width: 300px; display: flex; flex-direction: column; }
-  .help .label { margin-bottom: 8px; }
-  .help .kind { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 1rem; font-weight: 600; color: var(--scarlet); }
+  .help .kind { display: flex; align-items: center; gap: 8px; font-size: 1rem; font-weight: 600; color: var(--scarlet); }
   .help .kind .icon { width: 20px; height: 20px; }
   .help .title { font-size: 1.3rem; margin-top: 4px; }
   .help .keep { font-size: 1rem; color: var(--soft); line-height: 1.4; }
@@ -140,7 +139,7 @@
     .stub.wide { width: min(620px, 90vw); grid-template-columns: 1fr; }
     .help { border-left: 0; border-top: 1px dashed var(--rule); padding: 22px 0 0; margin-top: 24px; width: auto;
       display: grid; grid-template-columns: 1fr auto; column-gap: 28px; align-items: start; }
-    .help .qr { grid-column: 2; grid-row: 1 / span 4; margin: 0; width: 170px; height: 170px; }
+    .help .qr { grid-column: 2; grid-row: 1 / span 3; margin: 0; width: 170px; height: 170px; }
     .help .keep { margin-top: 12px; }
   }
 
@@ -206,7 +205,6 @@
       <p><span class="who" id="stubWho"></span>, <span id="stubText"></span></p>
     </div>
     <div class="help hidden" id="help">
-      <div class="label">While you wait · optional</div>
       <div class="kind"><span id="guideIcon"></span>How-to guide</div>
       <div class="title" id="helpTitle"></div>
       <div class="qr" id="helpQr" role="img"></div>
