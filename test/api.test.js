@@ -305,7 +305,7 @@ test('self-help QR on the check-in screen', async () => {
   assert.match(csv, /self_solved/);
 });
 
-test('permission form: sign on the iPad, on a phone, or skip', async () => {
+test('permission form: sign on the iPad or on a phone', async () => {
   const staff = client();
   await staff('POST', '/api/auth/dev', { email: 'boss@oit.rutgers.edu' });
   const ipad = client();
@@ -334,7 +334,7 @@ test('permission form: sign on the iPad, on a phone, or skip', async () => {
   await other('POST', '/api/kiosk/setup', { location_id: loc.id });
   assert.equal((await other('POST', `/api/kiosk/walkins/${a}/consent`, { method: 'signed', name: 'Pat Doe', signature: sig })).status, 409, 'only the same iPad');
   assert.equal((await ipad('POST', `/api/kiosk/walkins/${a}/consent`, { method: 'signed', name: 'Pat Doe', signature: sig })).status, 200);
-  assert.equal((await ipad('POST', `/api/kiosk/walkins/${a}/consent`, { method: 'skipped' })).status, 409, 'a signed form cannot be undone from the iPad');
+  assert.equal((await ipad('POST', `/api/kiosk/walkins/${a}/consent`, { method: 'phone' })).status, 409, 'a signed form cannot be changed from the iPad');
   let w = (await staff('GET', `/api/walkins/${a}`)).body;
   assert.equal(w.consent, 'signed');
   assert.equal(w.consent_name, 'Pat Doe');
@@ -353,10 +353,9 @@ test('permission form: sign on the iPad, on a phone, or skip', async () => {
   w = (await staff('GET', `/api/walkins/${b}`)).body;
   assert.equal(w.consent_by, 'boss@oit.rutgers.edu');
 
-  // Skipped.
+  // No skipping.
   const c = await checkIn('frm333');
-  assert.equal((await ipad('POST', `/api/kiosk/walkins/${c}/consent`, { method: 'skipped' })).status, 200);
-  assert.equal((await staff('GET', `/api/walkins/${c}`)).body.consent, 'skipped');
+  assert.equal((await ipad('POST', `/api/kiosk/walkins/${c}/consent`, { method: 'skipped' })).status, 400);
 
   // Admin: in-app only (no QR), text limits, and turning it off.
   assert.equal((await staff('POST', '/api/admin/consent', { on: true, url: 'javascript:alert(1)', text: info.consent.text })).status, 400);

@@ -152,8 +152,7 @@
      finger or use the phone on the right. It stays inside this page, so Guided Access holds. */
   .consent { position: fixed; inset: 0; z-index: 9; background: var(--paper); display: grid; grid-template-rows: auto minmax(0, 1fr);
     padding: max(20px, env(safe-area-inset-top)) clamp(24px, 4vw, 52px) max(20px, env(safe-area-inset-bottom)); }
-  .consent .top { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-bottom: 12px; border-bottom: 2px solid var(--ink); }
-  .consent .step { font-size: .82rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--scarlet); }
+  .consent .top { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; padding-bottom: 12px; border-bottom: 2px solid var(--ink); }
   .consent h1 { font-size: clamp(1.4rem, 3.4vh, 1.9rem); line-height: 1.15; letter-spacing: -.01em; margin-top: 2px; }
   .consent .no { font-family: var(--mono); color: var(--soft); font-size: 1rem; white-space: nowrap; }
   .consent .body { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); min-height: 0; }
@@ -181,7 +180,6 @@
   .phone p { font-size: 1rem; color: var(--soft); line-height: 1.35; }
   .phone p b { color: var(--ink); font-weight: 600; }
   .phone button { justify-self: start; margin-top: 8px; padding: 12px 18px; border: 1.5px solid var(--ink); border-radius: 4px; font-size: 1.05rem; font-weight: 600; }
-  .consent .skip { align-self: flex-start; margin-top: 12px; padding: 6px 0; font-size: 1rem; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; }
   .stub .note { font-size: 1rem; margin-top: 12px; color: var(--soft); }
   @media (orientation: portrait) {
     .consent .body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
@@ -191,7 +189,6 @@
     .phone { grid-column: 2; grid-row: 1; margin-top: 6px; border-top: 0; padding-top: 0; border-left: 1px dashed var(--rule); padding-left: 24px;
       grid-template-columns: 1fr; justify-items: start; }
     .phone .qr { grid-row: auto; width: 120px; height: 120px; margin-bottom: 10px; }
-    .consent .skip { grid-column: 1 / -1; }
   }
 
   .off { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: var(--paper); }
@@ -269,12 +266,11 @@
 
 <div class="consent hidden" id="consentView" role="dialog" aria-modal="true" aria-labelledby="consentHead">
   <div class="top">
-    <div><div class="step">Last step</div><h1 id="consentHead">Permission to work on your device</h1></div>
+    <h1 id="consentHead">Permission to work on your device</h1>
     <div class="no" id="consentNo"></div>
   </div>
   <div class="body">
-    <section class="terms" aria-labelledby="termsHead">
-      <h2 id="termsHead">Software Remediation and Troubleshooting Authorization</h2>
+    <section class="terms" aria-label="Software Remediation and Troubleshooting Authorization">
       <div class="text" id="consentText"></div>
     </section>
     <section class="sign" aria-label="Sign">
@@ -295,10 +291,9 @@
       </div>
       <div class="phone" id="phone">
         <div class="qr" id="consentQr" role="img" aria-label="QR code for the DocuSign permission form"></div>
-        <p><b>Or sign on your phone.</b> Scan to open the same form in DocuSign.</p>
-        <button type="button" id="usePhone">I'll sign on my phone</button>
+        <p><b>Or scan to sign on your phone.</b></p>
+        <button type="button" id="usePhone">I'll use my phone</button>
       </div>
-      <button type="button" class="skip" id="skipConsent">Skip. Nobody needs to work on my device.</button>
     </section>
   </div>
 </div>
@@ -631,11 +626,10 @@ function showConsent(id, help) {
     }
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     $('consentView').classList.add('hidden');
-    showDone(id, help, method === 'skipped' ? null : method);
+    showDone(id, help, method);
   };
   $('sigGo').onclick = () => finish('signed');
   $('usePhone').onclick = () => finish('phone');
-  $('skipConsent').onclick = () => finish('skipped');
 }
 
 function nudge2(id, text) {

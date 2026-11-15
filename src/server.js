@@ -240,13 +240,12 @@ app.post('/api/kiosk/walkins/:id/self-solved', auth.requireDevice, (req, res) =>
   res.json({ ok: true });
 });
 
-// Last check-in step: sign the consent on the iPad, or say they'll use the form on their phone,
-// or skip it. Same iPad, right after check-in, and once signed it can't be changed from the iPad.
+// Last check-in step: sign the consent on the iPad, or say they'll use the form on their phone. Same iPad, right after check-in, and once signed it can't be changed from the iPad.
 const CONSENT_WINDOW_MINUTES = 15;
 app.post('/api/kiosk/walkins/:id/consent', auth.requireDevice, (req, res) => {
   const c = consentSettings();
   if (!c.on) return bad(res, 'The permission form is turned off.', 409);
-  const method = ['signed', 'phone', 'skipped'].includes(req.body.method) ? req.body.method : null;
+  const method = ['signed', 'phone'].includes(req.body.method) ? req.body.method : null;
   if (!method) return bad(res, 'Pick how you want to sign.');
   if (method === 'phone' && !c.url) return bad(res, 'Signing on a phone is not set up here.');
   const name = clean(req.body.name, 100);
@@ -258,7 +257,7 @@ app.post('/api/kiosk/walkins/:id/consent', auth.requireDevice, (req, res) => {
   const since = new Date(Date.now() - CONSENT_WINDOW_MINUTES * 60e3).toISOString();
   const r = db.prepare(`UPDATE walkins SET consent=?, consent_name=?, consent_text=?, consent_sig=?, consent_at=?, consent_by=NULL
                         WHERE id=? AND device_id=? AND status IN ('waiting','claimed') AND created_at >= ?
-                          AND (consent IS NULL OR consent IN ('phone','skipped'))`)
+                          AND (consent IS NULL OR consent = 'phone')`)
     .run(method, method === 'signed' ? name : null, method === 'signed' ? c.text : null, method === 'signed' ? sig : null, now(),
       Number(req.params.id), req.device.id, since);
   if (r.changes === 0) return bad(res, 'This check-in can\'t be changed here any more. Let your consultant know.', 409);

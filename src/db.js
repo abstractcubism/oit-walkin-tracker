@@ -128,8 +128,8 @@ if (!db.prepare("SELECT 1 FROM meta WHERE key = 'help_links_v1'").get()) {
 }
 
 // Software remediation consent, the last step of check-in. Walk-ins either sign it on the
-// iPad (consent = 'signed', with their printed name, finger signature and the exact text they agreed to), say
-// they'll use the official DocuSign form on their phone ('phone'), or skip it ('skipped'). A consultant
+// iPad (consent = 'signed', with their printed name, finger signature and the exact text they agreed to), or
+// they'll use the official DocuSign form on their phone ('phone'). A consultant
 // can mark it signed after checking ('confirmed'). NULL = never answered.
 for (const col of ['consent TEXT', 'consent_name TEXT', 'consent_text TEXT', 'consent_sig TEXT', 'consent_at TEXT', 'consent_by TEXT']) {
   try { db.exec(`ALTER TABLE walkins ADD COLUMN ${col}`); } catch { /* already there */ }
