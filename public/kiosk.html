@@ -123,7 +123,7 @@
   .help .kind { display: flex; align-items: center; gap: 8px; font-size: 1rem; font-weight: 600; color: var(--scarlet); }
   .help .kind .icon { width: 20px; height: 20px; }
   .help .title { font-size: 1.3rem; margin-top: 4px; }
-  .help .keep { font-size: 1rem; color: var(--soft); line-height: 1.4; }
+  .help .keep { font-size: 1rem; color: var(--soft); line-height: 1.4; white-space: nowrap; }
   .help .qr { width: 176px; height: 176px; margin: 16px 0 14px; }
   .help .qr svg { width: 100%; height: 100%; display: block; }
   .help .title { font-weight: 600; font-size: 1.1rem; line-height: 1.3; }
@@ -132,8 +132,12 @@
   .stub .acts .ask { font-size: 1.1rem; font-weight: 600; margin-right: auto; }
   .stub .acts button { padding: 14px 22px; border-radius: 4px; font-size: 1.1rem; font-weight: 600; }
   .stub .acts .plain { padding-left: 0; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; font-weight: 500; }
+  /* "Fixed it with the guide?" sits above its button, so it reads as the exception, and Done as the normal way out. */
+  .stub .acts .solved { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+  .stub .acts .solved .q { font-size: .95rem; color: var(--soft); }
+  .stub .acts .solved .plain { padding: 6px 0; color: var(--ink); }
   .stub .acts .ink { background: var(--ink); color: #fff; }
-  .stub .acts .plain + .ink { margin-left: auto; }
+  .stub .acts .solved + .ink { margin-left: auto; }
   .stub .acts .line-btn { border: 1.5px solid var(--ink); }
   @media (orientation: portrait) {
     .stub.wide { width: min(620px, 90vw); grid-template-columns: 1fr; }
@@ -208,7 +212,7 @@
       <div class="kind"><span id="guideIcon"></span>How-to guide</div>
       <div class="title" id="helpTitle"></div>
       <div class="qr" id="helpQr" role="img"></div>
-      <p class="keep">Scan to read the steps on your phone. You keep your spot either way.</p>
+      <p class="keep">Scan to see the steps.<br>You keep your spot either way.</p>
     </div>
     <div class="acts hidden" id="acts"></div>
     <div class="timer" id="timer"><div></div></div>
@@ -435,7 +439,8 @@ function closeDone() {
 
 function askActs(id) {
   $('acts').replaceChildren(
-    el('button', { type: 'button', class: 'plain', onclick: () => confirmSolved(id) }, "I'm all set, take me out of line"),
+    el('div', { class: 'solved' }, el('span', { class: 'q' }, 'Already fixed it with the guide?'),
+      el('button', { type: 'button', class: 'plain', onclick: () => confirmSolved(id) }, 'Take me out of line')),
     el('button', { type: 'button', class: 'ink', onclick: closeDone }, 'Done'));
 }
 
