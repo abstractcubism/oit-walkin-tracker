@@ -121,9 +121,11 @@
   .stub.wide .timer { grid-column: 1 / -1; }
   .help { border-left: 1px dashed var(--rule); padding-left: 40px; width: 300px; display: flex; flex-direction: column; }
   .help .label { margin-bottom: 8px; }
-  .help .lead { font-size: 1.15rem; font-weight: 500; line-height: 1.35; }
-  .help .keep { margin-top: 6px; font-size: 1rem; color: var(--soft); }
-  .help .qr { width: 188px; height: 188px; margin: 18px 0 12px; }
+  .help .kind { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 1rem; font-weight: 600; color: var(--scarlet); }
+  .help .kind .icon { width: 20px; height: 20px; }
+  .help .title { font-size: 1.3rem; margin-top: 4px; }
+  .help .keep { font-size: 1rem; color: var(--soft); line-height: 1.4; }
+  .help .qr { width: 176px; height: 176px; margin: 16px 0 14px; }
   .help .qr svg { width: 100%; height: 100%; display: block; }
   .help .title { font-weight: 600; font-size: 1.1rem; line-height: 1.3; }
   .stub .acts { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -139,7 +141,7 @@
     .help { border-left: 0; border-top: 1px dashed var(--rule); padding: 22px 0 0; margin-top: 24px; width: auto;
       display: grid; grid-template-columns: 1fr auto; column-gap: 28px; align-items: start; }
     .help .qr { grid-column: 2; grid-row: 1 / span 4; margin: 0; width: 170px; height: 170px; }
-    .help .title { margin-top: 12px; }
+    .help .keep { margin-top: 12px; }
   }
 
   .off { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: var(--paper); }
@@ -204,11 +206,11 @@
       <p><span class="who" id="stubWho"></span>, <span id="stubText"></span></p>
     </div>
     <div class="help hidden" id="help">
-      <div class="label">While you wait</div>
-      <p class="lead">Scan with your phone camera.</p>
-      <div class="qr" id="helpQr" role="img"></div>
+      <div class="label">While you wait · optional</div>
+      <div class="kind"><span id="guideIcon"></span>How-to guide</div>
       <div class="title" id="helpTitle"></div>
-      <p class="keep">You keep your spot either way.</p>
+      <div class="qr" id="helpQr" role="img"></div>
+      <p class="keep">Scan to read the steps on your phone. You keep your spot either way.</p>
     </div>
     <div class="acts hidden" id="acts"></div>
     <div class="timer" id="timer"><div></div></div>
@@ -241,6 +243,7 @@ let helpFor = {};  // issue label -> { url, title, qr } for issues with a self-h
 let doneTimer = null;
 
 $('goIcon').replaceWith(icon('arrow-right'));
+$('guideIcon').replaceWith(icon('book-open'));
 
 // Staff exit: press and hold "Rutgers OIT" for 3 seconds. It only opens the staff sign-in;
 // nothing changes on this iPad unless a consultant signs in.
@@ -412,7 +415,7 @@ function showDone(id, help) {
   if (help) {
     $('helpQr').innerHTML = help.qr; // SVG drawn by our own server from an admin-set link
     $('helpQr').setAttribute('aria-label', 'QR code for ' + (help.title || help.url));
-    $('helpTitle').textContent = help.title || '';
+    $('helpTitle').textContent = help.title || 'Fix it step by step';
     askActs(id);
   }
   $('doneView').classList.remove('hidden');
