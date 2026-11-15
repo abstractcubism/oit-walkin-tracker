@@ -121,7 +121,8 @@
   .stub.wide .timer { grid-column: 1 / -1; }
   .help { border-left: 1px dashed var(--rule); padding-left: 40px; width: 300px; display: flex; flex-direction: column; }
   .help .label { margin-bottom: 8px; }
-  .help .lead { font-size: 1.05rem; color: var(--soft); line-height: 1.4; }
+  .help .lead { font-size: 1.15rem; font-weight: 500; line-height: 1.35; }
+  .help .keep { margin-top: 6px; font-size: 1rem; color: var(--soft); }
   .help .qr { width: 188px; height: 188px; margin: 18px 0 12px; }
   .help .qr svg { width: 100%; height: 100%; display: block; }
   .help .title { font-weight: 600; font-size: 1.1rem; line-height: 1.3; }
@@ -137,7 +138,7 @@
     .stub.wide { width: min(620px, 90vw); grid-template-columns: 1fr; }
     .help { border-left: 0; border-top: 1px dashed var(--rule); padding: 22px 0 0; margin-top: 24px; width: auto;
       display: grid; grid-template-columns: 1fr auto; column-gap: 28px; align-items: start; }
-    .help .qr { grid-column: 2; grid-row: 1 / span 3; margin: 0; width: 170px; height: 170px; }
+    .help .qr { grid-column: 2; grid-row: 1 / span 4; margin: 0; width: 170px; height: 170px; }
     .help .title { margin-top: 12px; }
   }
 
@@ -204,9 +205,10 @@
     </div>
     <div class="help hidden" id="help">
       <div class="label">While you wait</div>
-      <p class="lead">You can try this on your phone. Point the camera at the code. You'll keep your spot either way.</p>
+      <p class="lead">Scan with your phone camera.</p>
       <div class="qr" id="helpQr" role="img"></div>
       <div class="title" id="helpTitle"></div>
+      <p class="keep">You keep your spot either way.</p>
     </div>
     <div class="acts hidden" id="acts"></div>
     <div class="timer" id="timer"><div></div></div>
