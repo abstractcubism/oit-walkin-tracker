@@ -207,31 +207,35 @@ app.post('/api/tv/unlink', auth.requireUser, (req, res) => {
   res.json({ ok: true });
 });
 
-// The TV is in a public waiting area, so this sends only what's safe to show to a room:
-// the check-in number from the walk-in's confirmation stub, a short hint (first two letters
-// of the NetID, or first initial of the name) and the check-in time. Never the full NetID,
-// name, email or issue. TV_HINT=none drops the hint too.
+// What the waiting area sees: NetID (or first name + last initial for walk-ins without one),
+// the issue and a short bit of the description, and when they checked in. Never email.
 const TV_WINDOW_HOURS = 12; // ignore anything left open from an earlier day
-const tvHint = (w) => {
-  if (config.tvHint === 'none') return '';
-  if (w.netid) return w.netid.slice(0, 2);
-  if (w.name) return w.name.trim().charAt(0).toUpperCase() + '.';
-  return '';
+const tvWho = (w) => {
+  if (w.netid) return w.netid;
+  const parts = String(w.name || '').trim().split(/\s+/).filter(Boolean);
+  return parts.length > 1 ? `${parts[0]} ${parts.at(-1)[0].toUpperCase()}.` : parts[0] || 'Guest';
+};
+const tvDesc = (s) => {
+  s = String(s || '').replace(/\s+/g, ' ').trim();
+  return s.length > 60 ? s.slice(0, 58).replace(/\s+\S*$/, '') + '…' : s;
 };
 
 app.get('/api/tv/queue', auth.requireDisplay, (req, res) => {
   db.prepare('UPDATE devices SET last_seen = ? WHERE id = ?').run(now(), req.display.id);
   const since = new Date(Date.now() - TV_WINDOW_HOURS * 3600e3).toISOString();
-  const rows = db.prepare(`SELECT id, netid, name, status, created_at, claimed_at FROM walkins
+  // "Helped today" starts at the TV's local midnight, which the browser sends.
+  const today = req.query.since && !isNaN(Date.parse(req.query.since)) ? new Date(req.query.since).toISOString() : since;
+  const rows = db.prepare(`SELECT id, netid, name, issue_type, description, status, created_at, claimed_at FROM walkins
                            WHERE location_id = ? AND status IN ('waiting','claimed') AND created_at >= ?
                            ORDER BY created_at, id`).all(req.display.location_id, since);
-  const pick = (w) => ({ no: w.id, hint: tvHint(w), at: w.created_at });
+  const pick = (w) => ({ id: w.id, who: tvWho(w), issue: w.issue_type || 'Something else', desc: tvDesc(w.description), at: w.created_at });
   res.setHeader('Cache-Control', 'no-store');
   res.json({
     location: req.display.location_name,
     waiting: rows.filter((w) => w.status === 'waiting').map(pick),
-    // Most recently claimed first, so a walk-in can see their number was called.
-    helping: rows.filter((w) => w.status === 'claimed').sort((a, b) => b.claimed_at.localeCompare(a.claimed_at)).map(pick),
+    // Most recently claimed first, so a walk-in can see they were called.
+    helping: rows.filter((w) => w.status === 'claimed').sort((a, b) => b.claimed_at.localeCompare(a.claimed_at)).map((w) => ({ id: w.id, who: tvWho(w) })),
+    helpedToday: db.prepare("SELECT COUNT(*) AS n FROM walkins WHERE location_id = ? AND status = 'resolved' AND closed_at >= ?").get(req.display.location_id, today).n,
   });
 });
 

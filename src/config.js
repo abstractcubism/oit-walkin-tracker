@@ -43,10 +43,6 @@ const config = {
   // ServiceNow address used to turn ticket numbers into links (Rutgers' IT Help portal runs on ServiceNow).
   servicenowUrl: (process.env.SERVICENOW_URL || 'https://ithelp.rutgers.edu').replace(/\/$/, ''),
 
-  // What the TV queue screen shows next to each check-in number: 'initials' (first two letters
-  // of the NetID, or first initial of the name) or 'none' (number only).
-  tvHint: process.env.TV_HINT === 'none' ? 'none' : 'initials',
-
   // Slack incoming webhook. Leave empty to turn Slack posting off.
   slackWebhookUrl: process.env.SLACK_WEBHOOK_URL || '',
 };

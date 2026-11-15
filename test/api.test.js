@@ -186,7 +186,7 @@ test('retention erases personal details on old closed walk-ins only', async () =
   assert.equal(rows[0].ticket, 'INC0000001');
 });
 
-test('TV queue screen shows only numbers and a short hint, and cannot submit', async () => {
+test('TV queue screen shows the location queue, and cannot submit', async () => {
   const staff = client();
   await staff('POST', '/api/auth/dev', { email: 'boss@oit.rutgers.edu' });
   const hd = (await staff('GET', '/api/locations')).body.find((l) => l.name === 'Help Desk');
@@ -210,21 +210,24 @@ test('TV queue screen shows only numbers and a short hint, and cannot submit', a
   const ipad = client();
   await ipad('POST', '/api/auth/dev', { email: 'boss@oit.rutgers.edu' });
   await ipad('POST', '/api/kiosk/setup', { location_id: hd.id });
-  const a = (await ipad('POST', '/api/kiosk/walkins', { netid: 'qrs123', issue_type: 'Canvas', description: 'secret details here' })).body.id;
-  const b = (await ipad('POST', '/api/kiosk/walkins', { name: 'Jordan Lee', email: 'jordan@example.com', issue_type: 'Printing' })).body.id;
+  const a = (await ipad('POST', '/api/kiosk/walkins', { netid: 'qrs123', issue_type: 'Canvas', description: 'Can not see my   course' })).body.id;
+  const b = (await ipad('POST', '/api/kiosk/walkins', { name: 'Jordan Lee', email: 'jordan@example.com', description: 'x'.repeat(100) })).body.id;
   const c = (await ipad('POST', '/api/kiosk/walkins', { netid: 'tuv456', issue_type: 'Canvas' })).body.id;
+  const d = (await ipad('POST', '/api/kiosk/walkins', { netid: 'res789', issue_type: 'Canvas' })).body.id;
   await staff('POST', `/api/walkins/${c}/claim`, {});
+  await staff('POST', `/api/walkins/${d}/update`, { ticket: 'INC0099999' });
+  await staff('POST', `/api/walkins/${d}/resolve`, {});
 
   const q = (await tv('GET', '/api/tv/queue')).body;
-  q.waiting = q.waiting.filter((w) => w.no >= a); // ignore leftovers from earlier tests
+  q.waiting = q.waiting.filter((w) => w.id >= a); // ignore leftovers from earlier tests
   assert.equal(q.location, 'Help Desk');
-  assert.deepEqual(q.waiting.map((w) => w.no), [a, b], 'oldest first');
-  assert.deepEqual(q.waiting.map((w) => w.hint), ['qr', 'J.']);
-  assert.deepEqual(q.helping.map((w) => w.no), [c]);
-  const raw = JSON.stringify(q);
-  for (const secret of ['qrs123', 'Jordan', 'jordan@example.com', 'secret details', 'Canvas', 'tuv456']) {
-    assert.ok(!raw.includes(secret), `TV must not show ${secret}`);
-  }
+  assert.deepEqual(q.waiting.map((w) => w.who), ['qrs123', 'Jordan L.'], 'oldest first; no-NetID walk-ins show first name + last initial');
+  assert.deepEqual(q.waiting.map((w) => w.issue), ['Canvas', 'Something else']);
+  assert.equal(q.waiting[0].desc, 'Can not see my course');
+  assert.ok(q.waiting[1].desc.length <= 60, 'description is shortened');
+  assert.deepEqual(q.helping.map((w) => w.who), ['tuv456']);
+  assert.ok(q.helpedToday >= 1);
+  assert.ok(!JSON.stringify(q).includes('jordan@example.com'), 'never shows email');
 
   // Other locations don't appear.
   const arcPad = client();
@@ -232,10 +235,10 @@ test('TV queue screen shows only numbers and a short hint, and cannot submit', a
   const arc = (await arcPad('GET', '/api/locations')).body.find((l) => l.name === 'ARC');
   await arcPad('POST', '/api/kiosk/setup', { location_id: arc.id });
   await arcPad('POST', '/api/kiosk/walkins', { netid: 'arc999', issue_type: 'Canvas' });
-  assert.equal((await tv('GET', '/api/tv/queue')).body.waiting.filter((w) => w.no >= a).length, 2);
+  assert.equal((await tv('GET', '/api/tv/queue')).body.waiting.filter((w) => w.id >= a).length, 2);
 
   // Admin can unlink it.
-  const dev = (await staff('GET', '/api/admin')).body.devices.find((d) => d.kind === 'display');
+  const dev = (await staff('GET', '/api/admin')).body.devices.find((x) => x.kind === 'display');
   await staff('POST', `/api/admin/devices/${dev.id}/revoke`, {});
   assert.equal((await tv('GET', '/api/tv/queue')).status, 401);
 });

@@ -42,3 +42,13 @@ function icon(name, cls) {
   s.innerHTML = ICON_PATHS[name] || ICON_PATHS['message-circle'];
   return s;
 }
+
+// Pick an icon for each issue by keyword, so admins can add their own buttons.
+const ICON_RULES = [
+  [/duo|2fa|mfa|two.?factor/i, 'shield-check'], [/password|netid|login|account/i, 'key-round'],
+  [/wi-?fi|wireless|network|internet|eduroam/i, 'wifi'], [/e-?mail|outlook|gmail/i, 'mail'],
+  [/canvas|course|class/i, 'graduation-cap'], [/print/i, 'printer'], [/software|install|office|app/i, 'download'],
+  [/laptop|hardware|computer|repair/i, 'laptop'], [/phone|mobile/i, 'smartphone'], [/virus|security|phish|scam/i, 'shield-alert'],
+  [/zoom|video|webex|teams/i, 'video'], [/monitor|display|screen|projector/i, 'monitor'], [/storage|drive|backup|file/i, 'hard-drive'],
+];
+const iconFor = (label) => (ICON_RULES.find(([re]) => re.test(label)) || [null, 'circle-help'])[1];

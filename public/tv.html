@@ -16,6 +16,7 @@
     --soft: #6b665f;
     --rule: #d6d0c6;
     --scarlet: #cc0033;
+    --tint: #fbe3e9;
     --sans: "IBM Plex Sans", -apple-system, "Helvetica Neue", Arial, sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   }
@@ -23,8 +24,9 @@
   html, body { height: 100%; overflow: hidden; }
   body { background: var(--paper); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; cursor: none; user-select: none; }
   .hidden { display: none !important; }
+  .icon { width: 1em; height: 1em; flex: none; }
 
-  .screen { height: 100vh; display: grid; grid-template-rows: auto 1fr auto; padding: 4vh 4vw 3.5vh; }
+  .screen { height: 100vh; display: grid; grid-template-rows: auto 1fr auto; padding: 4vh 4vw 3vh; }
 
   header { display: flex; align-items: baseline; gap: 2.2vw; padding-bottom: 2vh; border-bottom: .35vh solid var(--ink); }
   .word { font-weight: 700; font-size: 2.6vh; position: relative; padding: 1vh 0; cursor: default; }
@@ -44,39 +46,63 @@
 
   .label { font-size: 1.9vh; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--soft); }
 
-  /* Waiting list: place in line, check-in number, hint, time checked in. */
-  .cols, .row { display: grid; grid-template-columns: 7vh minmax(0, 1fr) 12vw 13vw; align-items: baseline; column-gap: 2vw; }
-  .cols { padding: 1.4vh 0 1vh; border-bottom: 1px solid var(--rule); }
-  .cols span:last-child, .row .at { text-align: right; }
-  #rows { min-height: 0; overflow: hidden; }
-  .row { padding: 1.7vh 0; border-bottom: 1px solid var(--rule); }
-  .row .pos { font-family: var(--mono); font-size: 3.4vh; color: var(--soft); }
-  .row .no { font-family: var(--mono); font-size: 6.4vh; font-weight: 600; line-height: 1; letter-spacing: -.01em; }
-  .row .no small { font-family: var(--sans); font-size: 2.4vh; font-weight: 500; color: var(--soft); margin-right: .5em; letter-spacing: 0; }
-  .row .hint { font-family: var(--mono); font-size: 3.4vh; color: var(--soft); }
-  .row .at { font-family: var(--mono); font-size: 3vh; color: var(--soft); }
-  .row.next .pos { color: var(--scarlet); font-weight: 600; }
-  .row.next .no { color: var(--scarlet); }
+  /* Waiting list: NetID, issue, time checked in. */
+  #rows { margin-top: 1.2vh; border-top: 1px solid var(--rule); min-height: 0; overflow: hidden; }
+  .row { display: grid; grid-template-columns: minmax(0, 15vw) minmax(0, 1fr) auto; align-items: center; column-gap: 2.4vw;
+    padding: 1.9vh 0; border-bottom: 1px solid var(--rule); position: relative; }
+  .row .who { font-family: var(--mono); font-size: 5.4vh; font-weight: 600; line-height: 1.05; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .issue { display: flex; align-items: center; gap: 1.4vw; min-width: 0; }
+  .row .issue .icon { width: 4.4vh; height: 4.4vh; color: var(--soft); }
+  .row .issue b { display: block; font-size: 3.2vh; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .issue small { display: block; font-size: 2.3vh; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .3vh; }
+  .row .issue div { min-width: 0; }
+  .row .at { font-family: var(--mono); font-size: 2.8vh; color: var(--soft); text-align: right; }
+  .row.next { padding-top: 3.6vh; }
+  .row.next .who { color: var(--scarlet); }
+  .row .who.name { font-family: var(--sans); letter-spacing: -.02em; }
+  .row.next .issue .icon { color: var(--scarlet); }
+  .row.next::before { content: "Up next"; position: absolute; top: .5vh; left: 0; font-size: 1.5vh; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--scarlet); }
+  /* Someone just checked in: slide in with a scarlet wash that fades out. */
+  .row.enter { animation: enter .7s cubic-bezier(.2, .8, .2, 1), wash 2.4s ease-out; }
+  @keyframes enter { from { transform: translateX(6vw); opacity: 0; } }
+  @keyframes wash { from { background: var(--tint); } to { background: transparent; } }
+  /* Someone was called: the row folds away. */
+  .row.leave { animation: leave .6s ease-in forwards; overflow: hidden; }
+  @keyframes leave { to { opacity: 0; transform: translateX(-4vw); max-height: 0; padding-top: 0; padding-bottom: 0; border-bottom-width: 0; } }
+  .row.leave { max-height: 14vh; }
   .more { padding: 2vh 0 0; font-size: 2.6vh; color: var(--soft); }
-  .empty { padding: 6vh 0 0; }
-  .empty b { display: block; font-size: 6vh; font-weight: 600; letter-spacing: -.01em; }
+  .empty { padding: 7vh 0 0; }
+  .empty b { display: block; font-size: 7vh; font-weight: 600; letter-spacing: -.02em; }
   .empty span { display: block; margin-top: 1.5vh; font-size: 3vh; color: var(--soft); }
 
-  .count { padding: 1vh 0 3.5vh; border-bottom: 1px solid var(--rule); }
-  .count b { display: block; font-family: var(--mono); font-size: 19vh; font-weight: 600; line-height: .95; letter-spacing: -.03em; }
+  .count { padding: 0 0 3vh; border-bottom: 1px solid var(--rule); }
+  .count b { display: inline-block; font-family: var(--mono); font-size: 17vh; font-weight: 600; line-height: .95; letter-spacing: -.03em; }
   .count b.some { color: var(--scarlet); }
-  .count span { font-size: 3.2vh; font-weight: 500; }
-  .helping { padding-top: 3vh; min-height: 0; overflow: hidden; }
-  #helping { display: flex; flex-wrap: wrap; gap: 1.2vh 2.4vw; margin-top: 1.8vh; }
-  #helping div { font-family: var(--mono); font-size: 4.6vh; font-weight: 600; }
+  .count b.bump { animation: bump .5s ease-out; }
+  @keyframes bump { 40% { transform: translateY(-1.2vh); } }
+  .count span { display: block; font-size: 3.2vh; font-weight: 500; }
+  .helping { padding: 3vh 0; border-bottom: 1px solid var(--rule); }
+  #helping { display: flex; flex-wrap: wrap; gap: 1vh 2.2vw; margin-top: 1.6vh; min-height: 5vh; }
+  #helping div { font-family: var(--mono); font-size: 4vh; font-weight: 600; }
+  #helping div.called { animation: called 3s ease-out; }
+  @keyframes called { 0%, 30% { color: var(--scarlet); } }
   #helping .none { font-family: var(--sans); font-size: 2.8vh; font-weight: 400; color: var(--soft); }
+  .tally { padding-top: 3vh; min-height: 0; overflow: hidden; }
+  .tally .label b { font-family: var(--mono); color: var(--ink); font-size: 2.6vh; letter-spacing: 0; margin-left: .6em; }
+  #marks { display: flex; flex-wrap: wrap; gap: 1.6vh 1.6vw; margin-top: 2vh; color: var(--ink); }
+  #marks svg { height: 4.4vh; width: auto; }
+  #marks svg.fresh { animation: called 4s ease-out; }
 
-  footer { padding-top: 2vh; border-top: 1px solid var(--rule); font-size: 2.6vh; color: var(--soft); display: flex; justify-content: space-between; gap: 2vw; }
-  footer b { color: var(--ink); font-weight: 600; }
+  footer { padding-top: 2.2vh; border-top: 1px solid var(--rule); display: flex; align-items: baseline; gap: 2vw; min-height: 7vh; }
+  footer .label { white-space: nowrap; }
+  #tip { font-size: 2.8vh; transition: opacity .6s; }
+  #tip.out { opacity: 0; }
 
   .unlinked { position: fixed; inset: 0; background: var(--paper); display: grid; place-items: center; text-align: center; padding: 6vw; }
   .unlinked b { display: block; font-size: 5vh; margin-bottom: 2vh; }
   .unlinked span { font-size: 2.8vh; color: var(--soft); }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
@@ -90,21 +116,24 @@
 
   <main>
     <section class="list">
-      <div class="label">Waiting, in order</div>
-      <div class="cols label" id="cols"><span>#</span><span>Check-in no.</span><span>NetID</span><span>Checked in</span></div>
+      <div class="label">Waiting</div>
       <div id="rows"></div>
     </section>
     <section class="side">
-      <div class="count"><b id="count">0</b><span id="countText">waiting</span></div>
+      <div class="count"><b id="count">0</b><span id="countText">people waiting</span></div>
       <div class="helping">
         <div class="label">With a consultant</div>
         <div id="helping"></div>
+      </div>
+      <div class="tally">
+        <div class="label">Helped today<b id="helped">0</b></div>
+        <div id="marks"></div>
       </div>
     </section>
   </main>
 
   <footer>
-    <span>Your check-in number was on the iPad after you checked in.</span>
+    <span class="label">While you wait</span>
     <span id="tip"></span>
   </footer>
 </div>
@@ -114,11 +143,21 @@
 </div>
 
 <script src="/common.js"></script>
+<script src="/icons.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const REFRESH_MS = 5000;
 const MAX_ROWS = 7; // more than this and the rest are summed up as "and N more"
-const stubNo = (n) => String(n).padStart(3, '0'); // same format as the iPad's confirmation stub
+
+// Tips that rotate along the bottom. Edit freely; keep each to one line.
+const TIPS = [
+  'Connecting to eduroam? Your username is your NetID@rutgers.edu.',
+  'Forgot your NetID password? You can reset it yourself at netid.rutgers.edu.',
+  'Got a new phone? Bring the old one too if you have it. Moving Duo is much faster.',
+  'Bring the device you need help with, and its charger if the battery is low.',
+  'Seeing an error? A photo or screenshot of it helps us fix things faster.',
+  'You can also get help online any time at ithelp.rutgers.edu.',
+];
 
 // Staff exit: press and hold "Rutgers OIT" for 3 seconds. Only opens the staff sign-in.
 (() => {
@@ -132,39 +171,103 @@ const stubNo = (n) => String(n).padStart(3, '0'); // same format as the iPad's c
 const tick = () => { $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); };
 tick(); setInterval(tick, 10000);
 
+(() => {
+  let i = Math.floor(Math.random() * TIPS.length);
+  $('tip').textContent = TIPS[i];
+  setInterval(() => {
+    $('tip').classList.add('out');
+    setTimeout(() => { i = (i + 1) % TIPS.length; $('tip').textContent = TIPS[i]; $('tip').classList.remove('out'); }, 600);
+  }, 12000);
+})();
+
+// One tally group (up to five strokes, the fifth crossing the other four).
+function tallyGroup(n, fresh) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const s = document.createElementNS(ns, 'svg');
+  s.setAttribute('viewBox', '0 0 34 30');
+  s.setAttribute('class', fresh ? 'fresh' : '');
+  let d = '';
+  for (let k = 0; k < Math.min(n, 4); k++) d += `M${4 + k * 7} 3V27`;
+  if (n >= 5) d += 'M1 22L32 7';
+  s.innerHTML = `<path d="${d}" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"/>`;
+  return s;
+}
+
+let first = true;
+let shownIds = new Set();
+let helpingIds = new Set();
+let lastCount = null;
+let lastHelped = null;
+
+function rowFor(w, i) {
+  return el('div', { class: 'row' + (i === 0 ? ' next' : ''), 'data-id': w.id },
+    el('span', { class: 'who' + (/\s/.test(w.who) ? ' name' : '') }, w.who),
+    el('span', { class: 'issue' }, icon(iconFor(w.issue)), el('div', {}, el('b', {}, w.issue), w.desc ? el('small', {}, w.desc) : null)),
+    el('span', { class: 'at' }, fmtTime(w.at)));
+}
+
 function render(q) {
   $('place').textContent = q.location;
   document.title = `${q.location} queue · OIT`;
   const n = q.waiting.length;
+
+  if (lastCount !== null && n !== lastCount) { $('count').classList.remove('bump'); void $('count').offsetWidth; $('count').classList.add('bump'); }
+  lastCount = n;
   $('count').textContent = n;
   $('count').classList.toggle('some', n > 0);
   $('countText').textContent = n === 1 ? 'person waiting' : 'people waiting';
-  $('cols').classList.toggle('hidden', n === 0);
-  $('cols').children[2].textContent = q.waiting.some((w) => w.hint) ? 'Starts with' : '';
 
+  // Rows that left the queue fold away; new ones slide in.
   const shown = n > MAX_ROWS ? q.waiting.slice(0, MAX_ROWS - 1) : q.waiting;
-  $('rows').replaceChildren(...(n ? [
-    ...shown.map((w, i) => el('div', { class: 'row' + (i === 0 ? ' next' : '') },
-      el('span', { class: 'pos' }, i + 1),
-      el('span', { class: 'no' }, el('small', {}, 'No.'), stubNo(w.no)),
-      el('span', { class: 'hint' }, w.hint),
-      el('span', { class: 'at' }, fmtTime(w.at)))),
-    n > shown.length ? el('div', { class: 'more' }, `and ${n - shown.length} more after them`) : null,
-  ].filter(Boolean) : [el('div', { class: 'empty' }, el('b', {}, 'No one is waiting.'), el('span', {}, 'Check in at the iPad and a consultant will be right with you.'))]));
+  const nowIds = new Set(shown.map((w) => w.id));
+  const leaving = first ? [] : [...$('rows').querySelectorAll('.row')]
+    .filter((r) => !nowIds.has(Number(r.dataset.id)) && !q.waiting.some((w) => w.id === Number(r.dataset.id)))
+    .map((r) => { r.classList.remove('enter', 'next'); r.classList.add('leave'); return r; });
+  const rows = shown.map((w, i) => {
+    const r = rowFor(w, i);
+    if (!first && !shownIds.has(w.id)) r.classList.add('enter');
+    return r;
+  });
+  shownIds = nowIds;
+  const tail = n > shown.length ? [el('div', { class: 'more' }, `and ${n - shown.length} more after them`)] : [];
+  const draw = () => $('rows').replaceChildren(...(n ? [...rows, ...tail]
+    : [el('div', { class: 'empty' }, el('b', {}, 'No wait right now.'), el('span', {}, 'Check in at the iPad and a consultant will be right with you.'))]));
+  if (leaving.length) {
+    // Let the leaving rows finish folding before redrawing.
+    $('rows').replaceChildren(...leaving, ...rows, ...tail);
+    setTimeout(() => { if (lastQ === q) draw(); }, 650);
+  } else draw();
 
   const h = q.helping.slice(0, 8);
-  $('helping').replaceChildren(...(h.length ? h.map((w) => el('div', {}, stubNo(w.no))) : [el('div', { class: 'none' }, 'Nobody right now')]));
-  $('tip').textContent = n ? 'When your number moves to the right, a consultant will come find you.' : '';
+  $('helping').replaceChildren(...(h.length
+    ? h.map((w) => el('div', { class: !first && !helpingIds.has(w.id) ? 'called' : '' }, w.who))
+    : [el('div', { class: 'none' }, 'Nobody right now')]));
+  helpingIds = new Set(q.helping.map((w) => w.id));
+
+  // Tally marks for everyone helped today; the newest group is scarlet for a moment.
+  const helped = q.helpedToday;
+  $('helped').textContent = helped;
+  if (helped !== lastHelped) {
+    const groups = [];
+    const showMax = Math.min(helped, 60);
+    for (let k = 0; k < showMax; k += 5) groups.push(tallyGroup(Math.min(5, showMax - k), !first && k + 5 >= showMax && helped > (lastHelped || 0)));
+    $('marks').replaceChildren(...groups);
+    lastHelped = helped;
+  }
+  first = false;
 }
 
 let fails = 0;
+let lastQ = null;
 async function refresh() {
   try {
-    const r = await fetch('/api/tv/queue', { cache: 'no-store' });
+    const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+    const r = await fetch('/api/tv/queue?since=' + encodeURIComponent(midnight.toISOString()), { cache: 'no-store' });
     if (r.status === 401) { $('unlinked').classList.remove('hidden'); return; }
     if (!r.ok) throw new Error(r.status);
     $('unlinked').classList.add('hidden');
-    render(await r.json());
+    lastQ = await r.json();
+    render(lastQ);
     fails = 0;
   } catch {
     fails++;

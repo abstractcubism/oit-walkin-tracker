@@ -36,7 +36,6 @@ Copy `.env.example` to `.env` and fill it in. Every setting is explained there. 
 | `RETENTION_DAYS` | NetID, name, email and description are erased from closed walk-ins after this many days (default 90). Counts and ticket numbers are kept. |
 | `REQUIRE_TICKET` | A ticket number is required before resolving (default true) |
 | `SERVICENOW_URL` | ServiceNow address used to turn ticket numbers into links (default `https://ithelp.rutgers.edu`) |
-| `TV_HINT` | What the TV queue screen shows next to each check-in number: `initials` (default) or `none` |
 | `SLACK_WEBHOOK_URL` | Turns on Slack posting |
 
 You can turn on Google, Microsoft or both. Each one appears on the sign-in page once its keys are set.
@@ -114,4 +113,4 @@ The TV shows the walk-ins waiting at one location, oldest first, plus the number
 2. Choose **TV queue screen**, then the location. The browser switches to the queue and signs you out. It keeps a token that can only read that location's queue.
 3. To get back to the staff screen, press and hold "Rutgers OIT" for 3 seconds, or open `/setup`. You can unlink a TV from the Admin page.
 
-**What it shows, for privacy:** the check-in number from the walk-in's confirmation on the iPad (No. 042), the first two letters of their NetID (or first initial if they used their name) and the time they checked in. It never shows the full NetID, name, email or issue. Set `TV_HINT=none` to show the number only.
+**What it shows:** each waiting walk-in's NetID (or first name and last initial if they checked in without one), their issue with a short bit of the description, and when they checked in. Emails are never shown. It also shows who's with a consultant, how many were helped today, and rotating tips at the bottom (edit the `TIPS` list in `public/tv.html`).
