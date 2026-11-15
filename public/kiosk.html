@@ -170,9 +170,10 @@
   .pad .hint { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font-size: .9rem; color: var(--soft); pointer-events: none; }
   .pad.inked .hint { visibility: hidden; }
   .pad .clear { position: absolute; top: 4px; right: 4px; padding: 8px 12px; font-size: .95rem; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; }
-  .consent .row2 { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 20px; align-items: end; margin-top: 10px; }
+  .consent .row2 { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 24px; align-items: start; }
+  .consent .sig-label { margin-top: 16px; }
   .consent .row2 .line { margin: 4px 0 0; font-size: 1.25rem; }
-  .consent .date { font-family: var(--mono); font-size: 1.05rem; padding-bottom: 8px; border-bottom: 2px solid var(--rule); }
+  .consent .date { font-family: var(--mono); font-size: 1.05rem; margin-top: 4px; padding: 9px 0 8px; border-bottom: 2px solid var(--rule); }
   .consent .go { margin-top: 14px; }
   .consent .msg { min-height: 1.3em; margin-top: 6px; }
   .phone { margin-top: auto; padding-top: 12px; border-top: 1px dashed var(--rule); display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 18px; align-items: center; }
@@ -276,16 +277,16 @@
     </section>
     <section class="sign" aria-label="Sign">
       <div class="mine">
-        <div class="label"><span id="sigLabel">Signature</span></div>
+        <div class="row2">
+          <div><div class="label">Date</div><div class="date" id="sigDate"></div></div>
+          <div><label class="label" for="sigName">Print name</label><input class="line" id="sigName" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done"></div>
+        </div>
+        <div class="label sig-label"><span id="sigLabel">Signature</span></div>
         <div class="pad" id="pad">
           <canvas id="sig" role="img" aria-labelledby="sigLabel"></canvas>
           <span class="x" aria-hidden="true">&times;</span><span class="base"></span>
           <span class="hint">Sign here with your finger</span>
           <button type="button" class="clear" id="sigClear">Clear</button>
-        </div>
-        <div class="row2">
-          <div><label class="label" for="sigName">Print name</label><input class="line" id="sigName" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done"></div>
-          <div><div class="label">Date</div><div class="date" id="sigDate"></div></div>
         </div>
         <button type="button" class="go" id="sigGo">I agree, sign <span id="sigIcon"></span></button>
         <p class="msg" id="sigMsg" role="alert"></p>
