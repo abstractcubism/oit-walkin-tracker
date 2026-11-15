@@ -5,7 +5,7 @@ Check-in and queue for walk-ins at Rutgers OIT help desk and lab locations.
 1. **At opening**, a consultant signs in on the location's iPad, picks the location, and the iPad becomes a check-in form. The consultant is signed out on the iPad right away. The iPad keeps a token that can only submit walk-ins.
 2. **A walk-in** enters their NetID (or name and email if they don't have one), taps a common issue such as Duo / 2FA, and optionally describes it.
 3. **Consultants** see the live queue on their computers, **claim** a walk-in (two people can't both claim the same one), add the **ServiceNow ticket number**, and mark it resolved or left.
-4. **Slack** (optional, last): each walk-in is posted to a channel with the NetID, the issue and a direct link to that walk-in.
+4. **Slack** (optional, last): each walk-in is posted to a channel with the NetID, the issue and a direct link to that walk-in. With the Slack bot turned on, the post also has a **Claim** button that opens a small box for the ticket number, and the post updates to show who claimed it and the ticket.
 
 There's also a **Reports** page (volume by location, issue, hour and day, average wait, CSV export) and an **Admin** page (consultant list, locations, issue buttons, linked iPads).
 
@@ -34,7 +34,8 @@ Copy `.env.example` to `.env` and fill it in. Every setting is explained there. 
 | `RETENTION_DAYS` | NetID, name, email and description are erased from closed walk-ins after this many days (default 90). Counts and ticket numbers are kept. |
 | `REQUIRE_TICKET` | A ticket number is required before resolving (default true) |
 | `SERVICENOW_URL` | ServiceNow address used to turn ticket numbers into links (default `https://ithelp.rutgers.edu`) |
-| `SLACK_WEBHOOK_URL` | Turns on Slack posting |
+| `SLACK_WEBHOOK_URL` | Turns on Slack posting (post only) |
+| `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_CHANNEL` | Turns on the Slack bot with the Claim button instead (see below) |
 
 You can turn on Google, Microsoft or both. Each one appears on the sign-in page once its keys are set.
 
@@ -53,9 +54,40 @@ All three requests are small, and each is independent of the others.
 - No admin consent is needed for those
 - Create one client secret
 
-**Slack incoming webhook**
+**Slack**, pick one:
+
+*Option A: incoming webhook (post only, the smallest ask)*
 - A Slack app with a single feature, *Incoming Webhooks*, added to one channel
 - It can only post to that channel. It can't read messages, list users or do anything else.
+
+*Option B: bot with the Claim button*
+- A Slack app with **Socket Mode** and **Interactivity** turned on. Socket Mode means the OIT server connects out to Slack, so no public URL or firewall opening is needed, and no request URL is set.
+- Bot token scopes: `chat:write` (post and update its own walk-in posts, and send the private "already claimed" note), `users:read` and `users:read.email` (look up the email of the person who pressed Claim, to match them to the consultant list)
+- One app-level token with `connections:write` (for Socket Mode)
+- Invite the bot to the walk-ins channel and put the channel's ID in `SLACK_CHANNEL`
+- No event subscriptions and no `channels:history`: the bot never reads messages in the channel
+- When the retention period erases a walk-in's personal details here, the bot also edits the Slack post to remove them
+
+People are matched to Slack by email (or by NetID across @rutgers.edu and @scarletmail.rutgers.edu) the first time they press Claim. Anyone who doesn't match can be linked by Slack member ID on the Admin page.
+
+App manifest for Option B (paste into *Create New App, From a manifest*):
+
+```yaml
+display_information:
+  name: OIT Walk-ins
+features:
+  bot_user:
+    display_name: OIT Walk-ins
+oauth_config:
+  scopes:
+    bot: [chat:write, users:read, users:read.email]
+settings:
+  interactivity:
+    is_enabled: true
+  socket_mode_enabled: true
+  org_deploy_enabled: false
+  token_rotation_enabled: false
+```
 
 ## Deploy on the OIT server
 

@@ -110,14 +110,28 @@ if (!db.prepare("SELECT 1 FROM meta WHERE key = 'wifi_options'").get()) {
   db.prepare("INSERT INTO meta (key, value) VALUES ('wifi_options', '1')").run();
 }
 
+// Slack bot mode: where each walk-in was posted (so the post can be updated), and whether the
+// post needs refreshing. Users can be linked to their Slack member ID.
+for (const sql of [
+  'ALTER TABLE walkins ADD COLUMN slack_channel TEXT',
+  'ALTER TABLE walkins ADD COLUMN slack_ts TEXT',
+  'ALTER TABLE walkins ADD COLUMN slack_sync INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE users ADD COLUMN slack_user_id TEXT',
+]) {
+  try { db.exec(sql); } catch { /* already there */ }
+}
+
 // "Wi-Fi" + "eduroam,RUatHome" -> ['eduroam', 'RUatHome']
 const parseOptions = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
 
 const now = () => new Date().toISOString();
 
-// Run fn inside a transaction.
+// Run fn inside a transaction. Nested calls join the outer transaction.
+let txDepth = 0;
 function tx(fn) {
+  if (txDepth > 0) return fn();
   db.exec('BEGIN IMMEDIATE');
+  txDepth++;
   try {
     const out = fn();
     db.exec('COMMIT');
@@ -125,6 +139,8 @@ function tx(fn) {
   } catch (e) {
     db.exec('ROLLBACK');
     throw e;
+  } finally {
+    txDepth--;
   }
 }
 
