@@ -18,8 +18,8 @@
   <p class="muted" id="summary"></p>
   <div class="card">
     <h3>Consultants</h3>
-    <p class="small muted">Only people on this list can sign in with Google. Microsoft @oit accounts are added here automatically the first time they sign in, and you can turn anyone off.</p>
-    <div style="overflow-x:auto"><table><thead><tr><th>Email</th><th>Name</th><th>Role</th><th></th></tr></thead><tbody id="users"></tbody></table></div>
+    <p class="small muted">Only people on this list can sign in with Google. Microsoft @oit accounts are added here automatically the first time they sign in, and you can turn anyone off. When Slack's Claim button is on, people are matched to their Slack account by email the first time they press it; use Edit in the Slack column for anyone who doesn't match.</p>
+    <div style="overflow-x:auto"><table><thead><tr><th>Email</th><th>Name</th><th>Role</th><th class="slackcol">Slack</th><th></th></tr></thead><tbody id="users"></tbody></table></div>
     <form class="add row" id="addUser">
       <input id="uEmail" type="email" placeholder="netid@scarletmail.rutgers.edu" required style="flex:2;min-width:220px" aria-label="Email">
       <input id="uName" placeholder="Name (optional)" style="flex:1;min-width:140px" aria-label="Name">
@@ -36,14 +36,14 @@
     </div>
     <div class="card">
       <h3>Issue buttons on the iPad</h3>
-      <p class="small muted">Lower numbers show first.</p>
+      <p class="small muted">Lower numbers show first. A self-help link shows as a QR code on the iPad's "You're checked in" screen, for issues people can often fix themselves while they wait.</p>
       <table><tbody id="issues"></tbody></table>
       <form class="add row" id="addIssue"><input id="iLabel" placeholder="e.g. Duo / 2FA" required maxlength="60" aria-label="New issue"><input id="iSort" type="number" placeholder="Order" style="width:90px" aria-label="Order"><button class="primary" type="submit">Add</button></form>
     </div>
   </div>
   <div class="card">
-    <h3>Linked iPads</h3>
-    <p class="small muted">If an iPad is lost or replaced, unlink it here and it stops working immediately.</p>
+    <h3>Linked iPads and TV screens</h3>
+    <p class="small muted">If an iPad or TV is lost or replaced, unlink it here and it stops working immediately.</p>
     <div style="overflow-x:auto"><table><thead><tr><th>Location</th><th>Set up by</th><th>Set up</th><th>Last seen</th><th></th></tr></thead><tbody id="devices"></tbody></table></div>
   </div>
 </main>
@@ -62,7 +62,9 @@ async function load() {
   const sheetText = sh.mode === 'off' ? 'Google Sheet copy is off.'
     : sh.lastError ? `Google Sheet copy is failing (${sh.lastError}); ${sh.queued} walk-ins are waiting and will be sent when it reconnects.`
     : `Google Sheet copy is on (${sh.target}, tab "${sh.tab}")${sh.queued ? `, ${sh.queued} waiting to send` : ', up to date'}.`;
-  $('summary').textContent = `Personal details are erased after ${d.retentionDays} days. Slack posting is ${d.slack ? 'on' : 'off'}. ${sheetText}`;
+  const slackText = { bot: 'on, with the Claim button', webhook: 'on (post only)', off: 'off' }[d.slack];
+  $('summary').textContent = `Personal details are erased after ${d.retentionDays} days. Slack is ${slackText}. ${sheetText}`;
+  document.querySelectorAll('.slackcol').forEach((th) => { th.hidden = d.slack !== 'bot'; });
 
   $('users').replaceChildren(...d.users.map((u) => {
     const fixed = d.adminEmails.includes(u.email);
@@ -74,6 +76,12 @@ async function load() {
       el('td', {}, u.email, fixed ? el('div', { class: 'small muted' }, 'admin via server settings') : null),
       el('td', {}, u.name || ''),
       el('td', {}, role),
+      d.slack === 'bot' ? el('td', { class: 'small' },
+        u.slack_user_id ? el('span', { title: u.slack_user_id }, 'Linked') : el('span', { class: 'muted' }, 'Links on first Claim'), ' ',
+        el('button', { onclick: () => {
+          const v = prompt('Slack member ID (in Slack: their profile, ⋮, Copy member ID). Leave blank to unlink.', u.slack_user_id || '');
+          if (v != null) post('/api/admin/users/slack', { email: u.email, slack_user_id: v });
+        } }, 'Edit')) : null,
       el('td', { style: 'text-align:right' }, fixed || u.email === me.email ? '' :
         el('button', { onclick: () => post('/api/admin/users', { email: u.email, role: u.role, active: !u.active }) }, u.active ? 'Turn off' : 'Turn on')));
   }));
@@ -90,21 +98,26 @@ async function load() {
 
   $('issues').replaceChildren(...d.issues.map((i) => el('tr', { class: i.active ? null : 'off' },
     el('td', { class: 'muted', style: 'width:50px' }, i.sort),
-    el('td', {}, i.label, i.options ? el('div', { class: 'small muted' }, 'Choices: ' + i.options.split(',').join(', ')) : null),
+    el('td', {}, i.label, i.options ? el('div', { class: 'small muted' }, 'Choices: ' + i.options.split(',').join(', ')) : null,
+      i.help_url ? el('div', { class: 'small muted' }, 'Self-help: ', el('a', { href: i.help_url, target: '_blank', rel: 'noopener' }, i.help_title || i.help_url)) : null),
     el('td', { style: 'text-align:right;white-space:nowrap' },
       el('button', { onclick: () => {
         const label = prompt('Button text', i.label); if (label == null) return;
         const sort = prompt('Order (lower shows first)', i.sort); if (sort == null) return;
         const options = prompt('Optional sub-choices, comma-separated (e.g. eduroam, RUatHome). Leave blank for none.', (i.options || '').split(',').join(', '));
         if (options == null) return;
-        post('/api/admin/issues', { id: i.id, label, sort, options, active: !!i.active });
+        const help_url = prompt('Optional self-help link shown as a QR code after check-in (https://...). Leave blank for none.', i.help_url || '');
+        if (help_url == null) return;
+        const help_title = help_url.trim() ? prompt('Short line under the QR code (e.g. Reset a forgotten NetID password)', i.help_title || '') : '';
+        if (help_title == null) return;
+        post('/api/admin/issues', { id: i.id, label, sort, options, help_url, help_title, active: !!i.active });
       } }, 'Edit'), ' ',
       el('button', { onclick: () => post('/api/admin/issues', { id: i.id, active: !i.active }) }, i.active ? 'Hide' : 'Show')))));
 
   $('devices').replaceChildren(...(d.devices.length ? d.devices.map((x) => el('tr', {},
-    el('td', {}, x.location), el('td', {}, x.created_by), el('td', {}, fmtDateTime(x.created_at)), el('td', {}, x.last_seen ? fmtDateTime(x.last_seen) : 'never'),
-    el('td', { style: 'text-align:right' }, el('button', { onclick: () => { if (confirm(`Unlink the ${x.location} iPad?`)) post(`/api/admin/devices/${x.id}/revoke`, {}); } }, 'Unlink'))))
-    : [el('tr', {}, el('td', { class: 'muted' }, 'No iPads linked yet. Sign in on an iPad and go to /setup.'))]));
+    el('td', {}, x.location, x.kind === 'display' ? el('span', { class: 'muted' }, ' · TV screen') : el('span', { class: 'muted' }, ' · iPad')), el('td', {}, x.created_by), el('td', {}, fmtDateTime(x.created_at)), el('td', {}, x.last_seen ? fmtDateTime(x.last_seen) : 'never'),
+    el('td', { style: 'text-align:right' }, el('button', { onclick: () => { if (confirm(`Unlink the ${x.location} ${x.kind === 'display' ? 'TV screen' : 'iPad'}?`)) post(`/api/admin/devices/${x.id}/revoke`, {}); } }, 'Unlink'))))
+    : [el('tr', {}, el('td', { class: 'muted' }, 'Nothing linked yet. Sign in on an iPad or TV and go to /setup.'))]));
 }
 
 $('addUser').onsubmit = async (e) => {

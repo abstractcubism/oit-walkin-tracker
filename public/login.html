@@ -22,12 +22,14 @@
   const params = new URLSearchParams(location.search);
   const next = params.get('next') && params.get('next').startsWith('/') && !params.get('next').startsWith('//') ? params.get('next') : '/setup';
   // Opened from the iPad's hidden staff exit: give an easy way back if it was by mistake.
-  if (params.get('from') === 'kiosk') {
-    document.querySelector('.signin').append(el('a', { class: 'btn', href: '/kiosk', style: 'margin-top:18px' }, '← Back to check-in'));
-    // If nobody signs in within a minute, go back to the check-in form on its own.
-    let idle = setTimeout(() => { location.href = '/kiosk'; }, 60000);
-    ['input', 'touchstart', 'click'].forEach((ev) => document.addEventListener(ev, () => {
-      clearTimeout(idle); idle = setTimeout(() => { location.href = '/kiosk'; }, 60000);
+  // Same for the TV queue screen.
+  const back = { kiosk: ['/kiosk', '← Back to check-in'], tv: ['/tv', '← Back to the queue screen'] }[params.get('from')];
+  if (back) {
+    document.querySelector('.signin').append(el('a', { class: 'btn', href: back[0], style: 'margin-top:18px' }, back[1]));
+    // If nobody signs in within a minute, go back on its own.
+    let idle = setTimeout(() => { location.href = back[0]; }, 60000);
+    ['input', 'touchstart', 'click', 'keydown'].forEach((ev) => document.addEventListener(ev, () => {
+      clearTimeout(idle); idle = setTimeout(() => { location.href = back[0]; }, 60000);
     }, { passive: true }));
   }
   const err = document.getElementById('err');

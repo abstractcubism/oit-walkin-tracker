@@ -114,6 +114,39 @@
   .stub .timer div { height: 100%; width: 100%; background: var(--scarlet); }
   .stub .timer.run div { width: 0; transition-property: width; transition-timing-function: linear; }
 
+  /* Optional self-help panel, only for issues people can often fix themselves. It sits on the
+     stub's right like a second tear-off, and never stands between anyone and their place in line. */
+  .stub.wide { width: min(940px, 92vw); display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 40px; }
+  .stub.wide .main-stub { display: flex; flex-direction: column; }
+  .stub.wide .timer { grid-column: 1 / -1; }
+  .help { border-left: 1px dashed var(--rule); padding-left: 40px; width: 300px; display: flex; flex-direction: column; }
+  .help .kind { display: flex; align-items: center; gap: 8px; font-size: 1rem; font-weight: 600; color: var(--scarlet); }
+  .help .kind .icon { width: 20px; height: 20px; }
+  .help .title { font-size: 1.3rem; margin-top: 4px; }
+  .help .keep { font-size: 1rem; color: var(--soft); line-height: 1.4; white-space: nowrap; }
+  .help .qr { width: 176px; height: 176px; margin: 16px 0 14px; }
+  .help .qr svg { width: 100%; height: 100%; display: block; }
+  .help .title { font-weight: 600; font-size: 1.1rem; line-height: 1.3; }
+  .stub .acts { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    margin-top: 26px; padding-top: 18px; border-top: 1px dashed var(--rule); }
+  .stub .acts .ask { font-size: 1.1rem; font-weight: 600; margin-right: auto; }
+  .stub .acts button { padding: 14px 22px; border-radius: 4px; font-size: 1.1rem; font-weight: 600; }
+  .stub .acts .plain { padding-left: 0; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; font-weight: 500; }
+  /* "Fixed it with the guide?" sits above its button, so it reads as the exception, and Done as the normal way out. */
+  .stub .acts .solved { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+  .stub .acts .solved .q { font-size: .95rem; color: var(--soft); }
+  .stub .acts .solved .plain { padding: 6px 0; color: var(--ink); }
+  .stub .acts .ink { background: var(--ink); color: #fff; }
+  .stub .acts .solved + .ink { margin-left: auto; }
+  .stub .acts .line-btn { border: 1.5px solid var(--ink); }
+  @media (orientation: portrait) {
+    .stub.wide { width: min(620px, 90vw); grid-template-columns: 1fr; }
+    .help { border-left: 0; border-top: 1px dashed var(--rule); padding: 22px 0 0; margin-top: 24px; width: auto;
+      display: grid; grid-template-columns: 1fr auto; column-gap: 28px; align-items: start; }
+    .help .qr { grid-column: 2; grid-row: 1 / span 3; margin: 0; width: 170px; height: 170px; }
+    .help .keep { margin-top: 12px; }
+  }
+
   .off { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: var(--paper); }
   .off h1 { font-size: 2rem; margin-bottom: 10px; }
   .off a { display: inline-block; margin-top: 20px; background: var(--ink); color: #fff; padding: 14px 28px; text-decoration: none; border-radius: 4px; font-weight: 600; }
@@ -169,10 +202,19 @@
 </div>
 
 <div class="done hidden" id="doneView">
-  <div class="stub">
-    <div class="no"><span id="stubNo"></span><span id="stubTime"></span></div>
-    <h1>You're checked in.</h1>
-    <p><span class="who" id="stubWho"></span>, <span id="stubText"></span></p>
+  <div class="stub" id="stub">
+    <div class="main-stub">
+      <div class="no"><span id="stubNo"></span><span id="stubTime"></span></div>
+      <h1 id="stubHead">You're checked in.</h1>
+      <p><span class="who" id="stubWho"></span>, <span id="stubText"></span></p>
+    </div>
+    <div class="help hidden" id="help">
+      <div class="kind"><span id="guideIcon"></span>How-to guide</div>
+      <div class="title" id="helpTitle"></div>
+      <div class="qr" id="helpQr" role="img"></div>
+      <p class="keep">Scan to see the steps.<br>You keep your spot either way.</p>
+    </div>
+    <div class="acts hidden" id="acts"></div>
     <div class="timer" id="timer"><div></div></div>
   </div>
 </div>
@@ -188,6 +230,7 @@ const $ = (id) => document.getElementById(id);
 const OTHER = '__other__';
 const IDLE_MS = 90 * 1000; // clear a half-filled form after 90s untouched
 const DONE_MS = 7 * 1000;  // how long the confirmation shows
+const HELP_MS = 40 * 1000; // longer when there's a self-help code to scan
 const NETID_RE = /^[a-z]{2,8}[0-9]{1,6}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 let selected = null;     // issue label, OTHER, or null
@@ -198,8 +241,11 @@ let idleTimer = null;
 let usingNetid = true;
 let hasSeating = false;
 let tried = false; // did they press Check in at least once?
+let helpFor = {};  // issue label -> { url, title, qr } for issues with a self-help link
+let doneTimer = null;
 
 $('goIcon').replaceWith(icon('arrow-right'));
+$('guideIcon').replaceWith(icon('book-open'));
 
 // Staff exit: press and hold "Rutgers OIT" for 3 seconds. It only opens the staff sign-in;
 // nothing changes on this iPad unless a consultant signs in.
@@ -211,15 +257,6 @@ $('goIcon').replaceWith(icon('arrow-right'));
   ['touchend', 'touchcancel', 'mouseup', 'mouseleave'].forEach((ev) => w.addEventListener(ev, stop));
 })();
 
-// Pick an icon for each issue by keyword, so admins can add their own buttons.
-const ICON_RULES = [
-  [/duo|2fa|mfa|two.?factor/i, 'shield-check'], [/password|netid|login|account/i, 'key-round'],
-  [/wi-?fi|wireless|network|internet|eduroam/i, 'wifi'], [/e-?mail|outlook|gmail/i, 'mail'],
-  [/canvas|course|class/i, 'graduation-cap'], [/print/i, 'printer'], [/software|install|office|app/i, 'download'],
-  [/laptop|hardware|computer|repair/i, 'laptop'], [/phone|mobile/i, 'smartphone'], [/virus|security|phish|scam/i, 'shield-alert'],
-  [/zoom|video|webex|teams/i, 'video'], [/monitor|display|screen|projector/i, 'monitor'], [/storage|drive|backup|file/i, 'hard-drive'],
-];
-const iconFor = (label) => (ICON_RULES.find(([re]) => re.test(label)) || [null, 'circle-help'])[1];
 
 function tick() { $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
 setInterval(tick, 15000); tick();
@@ -329,6 +366,7 @@ async function load() {
     minDesc = info.minDescription || 10;
     // Only the help desk has a waiting area, so only it tells people to sit down.
     hasSeating = /help\s*desk/i.test(info.location || '');
+    helpFor = Object.fromEntries(info.issues.filter((i) => i.help).map((i) => [i.label, i.help]));
     $('issues').replaceChildren(...info.issues.map((i) => issueButton(i.label, i.label, iconFor(i.label), '', i.options)),
       issueButton('Something else', OTHER, 'pencil-line', 'other'));
     clearIssues();
@@ -360,10 +398,7 @@ $('f').onsubmit = async (e) => {
     $('stubTime').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     $('stubWho').textContent = body.netid ? body.netid.toLowerCase() : body.name.split(' ')[0];
     $('stubText').textContent = hasSeating ? 'grab a seat. A consultant will come find you.' : 'a consultant will be with you shortly.';
-    $('doneView').classList.remove('hidden');
-    const t = $('timer'); t.classList.remove('run'); t.firstElementChild.style.transitionDuration = DONE_MS + 'ms';
-    void t.offsetWidth; t.classList.add('run');
-    setTimeout(() => { reset(); $('doneView').classList.add('hidden'); }, DONE_MS);
+    showDone(r.id, selected !== OTHER ? helpFor[selected] : null);
   } catch (x) {
     if (x.status === 401) showOff();
     $('msg').textContent = x.message;
@@ -371,6 +406,60 @@ $('f').onsubmit = async (e) => {
     $('go').disabled = false;
   }
 };
+
+// Confirmation stub. With a self-help link it gets a QR code, a Done button and an
+// "I'm all set" button that takes the person out of line (asked twice, so a stray tap can't).
+function showDone(id, help) {
+  $('stubHead').textContent = "You're checked in.";
+  $('stub').classList.toggle('wide', !!help);
+  $('help').classList.toggle('hidden', !help);
+  $('acts').classList.toggle('hidden', !help);
+  if (help) {
+    $('helpQr').innerHTML = help.qr; // SVG drawn by our own server from an admin-set link
+    $('helpQr').setAttribute('aria-label', 'QR code for ' + (help.title || help.url));
+    $('helpTitle').textContent = help.title || 'Fix it step by step';
+    askActs(id);
+  }
+  $('doneView').classList.remove('hidden');
+  startTimer(help ? HELP_MS : DONE_MS);
+}
+
+function startTimer(ms) {
+  const t = $('timer'); t.classList.remove('run'); t.firstElementChild.style.transitionDuration = ms + 'ms';
+  void t.offsetWidth; t.classList.add('run');
+  clearTimeout(doneTimer);
+  doneTimer = setTimeout(closeDone, ms);
+}
+
+function closeDone() {
+  clearTimeout(doneTimer);
+  reset();
+  $('doneView').classList.add('hidden');
+}
+
+function askActs(id) {
+  $('acts').replaceChildren(
+    el('div', { class: 'solved' }, el('span', { class: 'q' }, 'Already fixed it with the guide?'),
+      el('button', { type: 'button', class: 'plain', onclick: () => confirmSolved(id) }, 'Take me out of line')),
+    el('button', { type: 'button', class: 'ink', onclick: closeDone }, 'Done'));
+}
+
+function confirmSolved(id) {
+  $('acts').replaceChildren(
+    el('span', { class: 'ask' }, 'Leave the line?'),
+    el('button', { type: 'button', class: 'line-btn', onclick: () => askActs(id) }, 'No, keep my spot'),
+    el('button', { type: 'button', class: 'ink', onclick: async () => {
+      try {
+        await api(`/api/kiosk/walkins/${id}/self-solved`, {});
+        $('stubHead').textContent = "Glad that worked.";
+        $('stubText').textContent = "you're out of the line. Come back any time.";
+        $('help').classList.add('hidden'); $('acts').classList.add('hidden'); $('stub').classList.remove('wide');
+        startTimer(4000);
+      } catch (x) {
+        $('acts').replaceChildren(el('span', { class: 'ask' }, x.message), el('button', { type: 'button', class: 'ink', onclick: closeDone }, 'Done'));
+      }
+    } }, "Yes, I'm all set"));
+}
 
 load();
 // Every 10 min pick up new issue buttons (and notice if the iPad was unlinked), but never mid-entry.

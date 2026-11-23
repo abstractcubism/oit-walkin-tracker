@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Queue · OIT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Read-only queue for a TV in the waiting area. Sized in vh so it reads from across the room
+     on any 16:9 screen, and nothing ever scrolls. */
+  :root {
+    --paper: #f4f1ec;
+    --ink: #141414;
+    --soft: #6b665f;
+    --rule: #d6d0c6;
+    --scarlet: #cc0033;
+    --tint: #fbe3e9;
+    --sans: "IBM Plex Sans", -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body { background: var(--paper); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; cursor: none; user-select: none; }
+  .hidden { display: none !important; }
+  .icon { width: 1em; height: 1em; flex: none; }
+
+  .screen { height: 100vh; display: grid; grid-template-rows: auto 1fr auto; padding: 4vh 4vw 3vh; }
+
+  header { display: flex; align-items: baseline; gap: 2.2vw; padding-bottom: 2vh; border-bottom: .35vh solid var(--ink); }
+  .word { font-weight: 700; font-size: 2.6vh; position: relative; padding: 1vh 0; cursor: default; }
+  .word span { color: var(--scarlet); }
+  /* Hidden staff exit, same as the iPad: press and hold the wordmark for 3 seconds. */
+  .word::after { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; width: 0; background: var(--scarlet); }
+  .word.holding::after { width: 100%; transition: width 3s linear; }
+  .place { font-size: 4.6vh; font-weight: 600; letter-spacing: -.01em; }
+  .clock { order: 1; font-family: var(--mono); font-size: 3.4vh; color: var(--soft); }
+  .offline { font-size: 2vh; color: var(--scarlet); font-weight: 600; display: flex; align-items: center; gap: .6em; }
+  .offline::before { content: ""; width: 1.1vh; height: 1.1vh; border-radius: 50%; background: currentColor; animation: blink 1.4s infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+
+  main { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); min-height: 0; }
+  .list { padding: 3.5vh 3.5vw 0 0; border-right: 1px solid var(--rule); display: flex; flex-direction: column; min-height: 0; }
+  .side { padding: 3.5vh 0 0 3.5vw; display: flex; flex-direction: column; min-height: 0; }
+
+  .label { font-size: 1.9vh; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--soft); }
+
+  /* Waiting list: NetID, issue, time checked in. */
+  /* Extra side room so the red "Now calling" band can bleed past the columns without being clipped. */
+  #rows { margin: 1.2vh -1.6vw 0; padding: 0 1.6vw; min-height: 0; overflow: hidden; position: relative; }
+  #rows::before { content: ""; position: absolute; top: 0; left: 1.6vw; right: 1.6vw; border-top: 1px solid var(--rule); }
+  .row { display: grid; grid-template-columns: minmax(0, 15vw) minmax(0, 1fr) auto; align-items: center; column-gap: 2.4vw;
+    padding: 1.9vh 0; border-bottom: 1px solid var(--rule); position: relative; }
+  .row .who { font-family: var(--mono); font-size: 5.4vh; font-weight: 600; line-height: 1.05; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .issue { display: flex; align-items: center; gap: 1.4vw; min-width: 0; }
+  .row .issue .icon { width: 4.4vh; height: 4.4vh; color: var(--soft); }
+  .row .issue b { display: block; font-size: 3.2vh; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .issue small { display: block; font-size: 2.3vh; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .3vh; }
+  .row .issue div { min-width: 0; }
+  .row .at { font-family: var(--mono); font-size: 2.8vh; color: var(--soft); text-align: right; }
+  .row.next { padding-top: 3.6vh; }
+  .row.next .who { color: var(--scarlet); }
+  .row .who.name { font-family: var(--sans); letter-spacing: -.02em; }
+  .row.next .issue .icon { color: var(--scarlet); }
+  .row.next::before { content: "Up next"; position: absolute; top: .5vh; left: 0; font-size: 1.5vh; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--scarlet); }
+  /* Someone just checked in: slide in with a scarlet wash that fades out. */
+  .row.enter { animation: enter .7s cubic-bezier(.2, .8, .2, 1), wash 2.4s ease-out; }
+  @keyframes enter { from { transform: translateX(6vw); opacity: 0; } }
+  @keyframes wash { from { background: var(--tint); } to { background: transparent; } }
+  /* Someone was called: the row folds away. */
+  .row.leave { animation: leave .6s ease-in forwards; overflow: hidden; }
+  @keyframes leave { to { opacity: 0; transform: translateX(-4vw); max-height: 0; padding-top: 0; padding-bottom: 0; border-bottom-width: 0; } }
+  .row.leave { max-height: 14vh; }
+  /* Just claimed: the consultant is coming to find them. Lit up red until it moves across. */
+  /* The red band bleeds out past the list edges so its columns stay lined up with the other rows. */
+  .row.calling { background: var(--scarlet); color: #fff; margin: 0 -1.6vw; padding-left: 1.6vw; padding-right: 1.6vw; padding-top: 3.6vh; border-bottom-color: var(--paper); animation: glow 2s ease-in-out infinite; }
+  .row.calling.lit { animation: light .9s ease-out, glow 2s ease-in-out .9s infinite; }
+  .row.calling::before { content: "Now calling"; position: absolute; top: .6vh; left: 1.6vw; font-size: 1.5vh; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #fff; opacity: .85; }
+  .row.calling .who, .row.calling .issue .icon, .row.calling .issue small, .row.calling .at { color: #fff; }
+  .row.calling .issue small { opacity: .85; }
+  @keyframes glow { 50% { background: #e0103f; } }
+  @keyframes light { from { background: var(--paper); color: var(--ink); transform: scale(.98); } }
+  .more { padding: 2vh 0 0; font-size: 2.6vh; color: var(--soft); }
+  .empty { padding: 7vh 0 0; }
+  .empty b { display: block; font-size: 7vh; font-weight: 600; letter-spacing: -.02em; }
+  .empty span { display: block; margin-top: 1.5vh; font-size: 3vh; color: var(--soft); }
+
+  .count { padding: 0 0 3vh; border-bottom: 1px solid var(--rule); }
+  .count b { display: inline-block; font-family: var(--mono); font-size: 17vh; font-weight: 600; line-height: .95; letter-spacing: -.03em; }
+  .count b.some { color: var(--scarlet); }
+  .count b.bump { animation: bump .5s ease-out; }
+  @keyframes bump { 40% { transform: translateY(-1.2vh); } }
+  .count span { display: block; font-size: 3.2vh; font-weight: 500; }
+  .helping { padding: 3vh 0; border-bottom: 1px solid var(--rule); }
+  .helping { min-height: 0; overflow: hidden; }
+  #helping { display: grid; gap: 1.1vh; margin-top: 1.6vh; }
+  #helping .pair { display: flex; align-items: baseline; gap: .8vw; white-space: nowrap; overflow: hidden; }
+  #helping .pair b { font-family: var(--mono); font-size: 3.6vh; font-weight: 600; }
+  #helping .pair span { font-size: 2.6vh; color: var(--soft); overflow: hidden; text-overflow: ellipsis; }
+  #helping .pair span em { font-style: normal; color: var(--ink); font-weight: 600; }
+  /* Lots of consultants on: two columns, smaller type. */
+  #helping.dense { grid-template-columns: 1fr 1fr; column-gap: 2vw; gap: .8vh 2vw; }
+  #helping.dense .pair b { font-size: 2.8vh; }
+  #helping.dense .pair span { font-size: 2.1vh; }
+  #helping .more { padding: .4vh 0 0; font-size: 2.2vh; }
+  #helping .called { animation: called 3s ease-out; }
+  @keyframes called { 0%, 30% { color: var(--scarlet); } }
+  #helping .none { font-family: var(--sans); font-size: 2.8vh; font-weight: 400; color: var(--soft); }
+
+  /* Rotating tips: a light scarlet band with an alert icon to catch the eye. */
+  footer { margin-top: 2.4vh; background: var(--tint); border-left: .6vh solid var(--scarlet); padding: 2vh 2vw; display: flex; align-items: center; gap: 1.4vw; }
+  footer .icon { width: 4.4vh; height: 4.4vh; color: var(--scarlet); }
+  #tip { font-size: 3vh; line-height: 1.3; transition: opacity .6s; }
+  #tip b { color: var(--scarlet); font-weight: 700; margin-right: .5em; }
+  #tip.out { opacity: 0; }
+  footer.pop .icon { animation: pop .6s ease-out; }
+  @keyframes pop { 40% { transform: scale(1.25) rotate(-8deg); } }
+
+  /* For supervisors: small, out of the way. */
+  .helped { order: 0; margin-left: auto; font-size: 1.9vh; color: var(--soft); white-space: nowrap; }
+  .helped b { font-family: var(--mono); color: var(--ink); font-weight: 600; }
+
+  .unlinked { position: fixed; inset: 0; background: var(--paper); display: grid; place-items: center; text-align: center; padding: 6vw; }
+  .unlinked b { display: block; font-size: 5vh; margin-bottom: 2vh; }
+  .unlinked span { font-size: 2.8vh; color: var(--soft); }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="screen">
+  <header>
+    <div class="word" id="word"><span>Rutgers</span> OIT</div>
+    <div class="place" id="place"></div>
+    <div class="offline hidden" id="offline">Reconnecting</div>
+    <div class="clock" id="clock"></div>
+    <div class="helped"><b id="helped">0</b> helped today</div>
+  </header>
+
+  <main>
+    <section class="list">
+      <div class="label">Waiting</div>
+      <div id="rows"></div>
+    </section>
+    <section class="side">
+      <div class="count"><b id="count">0</b><span id="countText">people waiting</span></div>
+      <div class="helping">
+        <div class="label">With a consultant</div>
+        <div id="helping"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer id="tipBox">
+    <span id="tipIcon"></span>
+    <span id="tip"></span>
+  </footer>
+</div>
+
+<div class="unlinked hidden" id="unlinked">
+  <div><b>This screen isn't linked to a location.</b><span>A consultant can set it up by signing in at /setup and choosing TV queue screen.</span></div>
+</div>
+
+<script src="/common.js"></script>
+<script src="/icons.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const REFRESH_MS = 5000;
+const MAX_ROWS = 7; // more than this and the rest are summed up as "and N more"
+
+// Tips that rotate along the bottom. Edit freely; keep each to one line.
+const TIPS = [
+  'Connecting to eduroam? Your username is your NetID@rutgers.edu.',
+  'Forgot your NetID password? You can reset it yourself at netid.rutgers.edu.',
+  'Got a new phone? Bring the old one too if you have it. Moving Duo is much faster.',
+  'Bring the device you need help with, and its charger if the battery is low.',
+  'Seeing an error? A photo or screenshot of it helps us fix things faster.',
+  'You can also get help online any time at ithelp.rutgers.edu.',
+];
+
+// Staff exit: press and hold "Rutgers OIT" for 3 seconds. Only opens the staff sign-in.
+(() => {
+  const w = $('word'); let t = null;
+  const start = (e) => { e.preventDefault(); w.classList.add('holding'); t = setTimeout(() => { location.href = '/login?next=/setup%3Fas%3Dtv&from=tv'; }, 3000); };
+  const stop = () => { clearTimeout(t); w.classList.remove('holding'); };
+  w.addEventListener('touchstart', start, { passive: false }); w.addEventListener('mousedown', start);
+  ['touchend', 'touchcancel', 'mouseup', 'mouseleave'].forEach((ev) => w.addEventListener(ev, stop));
+})();
+
+const tick = () => { $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); };
+tick(); setInterval(tick, 10000);
+
+(() => {
+  $('tipIcon').replaceWith(icon('circle-alert'));
+  let i = Math.floor(Math.random() * TIPS.length);
+  const show = () => $('tip').replaceChildren(el('b', {}, 'Quick tip'), TIPS[i]);
+  show();
+  setInterval(() => {
+    $('tip').classList.add('out');
+    setTimeout(() => {
+      i = (i + 1) % TIPS.length; show(); $('tip').classList.remove('out');
+      $('tipBox').classList.remove('pop'); void $('tipBox').offsetWidth; $('tipBox').classList.add('pop');
+    }, 600);
+  }, 12000);
+})();
+
+let first = true;
+let shownIds = new Set();
+let helpingIds = new Set();
+let lastCount = null;
+
+function rowFor(w, cls) {
+  const calling = !!w.by;
+  return el('div', { class: 'row ' + cls, 'data-id': w.id },
+    el('span', { class: 'who' + (/\s/.test(w.who) ? ' name' : '') }, w.who),
+    el('span', { class: 'issue' }, icon(calling ? 'user-round' : iconFor(w.issue)),
+      el('div', {}, el('b', {}, calling ? `${w.by} is coming to find you` : w.issue), calling ? el('small', {}, w.issue) : w.desc ? el('small', {}, w.desc) : null)),
+    el('span', { class: 'at' }, fmtTime(w.at)));
+}
+let callingIds = new Set();
+
+function render(q) {
+  $('place').textContent = q.location;
+  document.title = `${q.location} queue · OIT`;
+  const n = q.waiting.length;
+
+  if (lastCount !== null && n !== lastCount) { $('count').classList.remove('bump'); void $('count').offsetWidth; $('count').classList.add('bump'); }
+  lastCount = n;
+  $('count').textContent = n;
+  $('count').classList.toggle('some', n > 0);
+  $('countText').textContent = n === 1 ? 'person waiting' : 'people waiting';
+
+  // Just-claimed walk-ins sit lit up at the top, then everyone waiting in order.
+  // Rows that leave the list fold away; new check-ins slide in.
+  const list = [...q.calling, ...q.waiting];
+  const shown = list.length > MAX_ROWS ? list.slice(0, MAX_ROWS - 1) : list;
+  const nowIds = new Set(shown.map((w) => w.id));
+  const allIds = new Set(list.map((w) => w.id));
+  const leaving = first ? [] : [...$('rows').querySelectorAll('.row')]
+    .filter((r) => !allIds.has(Number(r.dataset.id)))
+    .map((r) => { r.classList.remove('enter', 'next', 'lit'); r.classList.add('leave'); return r; });
+  const rows = shown.map((w, i) => {
+    const r = rowFor(w, w.by ? 'calling' : i === q.calling.length ? 'next' : '');
+    if (!first && w.by && !callingIds.has(w.id)) r.classList.add('lit');
+    else if (!first && !shownIds.has(w.id)) r.classList.add('enter');
+    return r;
+  });
+  shownIds = nowIds;
+  callingIds = new Set(q.calling.map((w) => w.id));
+  const hidden = list.length - shown.length;
+  const tail = hidden ? [el('div', { class: 'more' }, `and ${hidden} more after them`)] : [];
+  const draw = () => $('rows').replaceChildren(...(list.length ? [...rows, ...tail]
+    : [el('div', { class: 'empty' }, el('b', {}, 'No wait right now.'), el('span', {}, 'Check in at the iPad and a consultant will be right with you.'))]));
+  if (leaving.length) {
+    // Let the leaving rows finish folding before redrawing.
+    $('rows').replaceChildren(...leaving, ...rows, ...tail);
+    setTimeout(() => { if (lastQ === q) draw(); }, 650);
+  } else draw();
+
+  // "jd4521 with Alex". Two smaller columns when lots of consultants are working walk-ins.
+  const dense = q.helping.length > 4;
+  const max = dense ? 12 : 4;
+  const h = q.helping.length > max ? q.helping.slice(0, max - 1) : q.helping;
+  $('helping').classList.toggle('dense', dense);
+  $('helping').replaceChildren(...(h.length
+    ? [...h.map((w) => el('div', { class: 'pair' + (!first && !helpingIds.has(w.id) ? ' called' : '') },
+        el('b', {}, w.who), el('span', {}, 'with ', el('em', {}, w.by)))),
+      q.helping.length > h.length ? el('div', { class: 'more' }, `and ${q.helping.length - h.length} more`) : null].filter(Boolean)
+    : [el('div', { class: 'none' }, 'Nobody right now')]));
+  helpingIds = new Set(q.helping.map((w) => w.id));
+
+  $('helped').textContent = q.helpedToday;
+  first = false;
+}
+
+let fails = 0;
+let lastQ = null;
+async function refresh() {
+  try {
+    const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+    const r = await fetch('/api/tv/queue?since=' + encodeURIComponent(midnight.toISOString()), { cache: 'no-store' });
+    if (r.status === 401) { $('unlinked').classList.remove('hidden'); return; }
+    if (!r.ok) throw new Error(r.status);
+    $('unlinked').classList.add('hidden');
+    lastQ = await r.json();
+    render(lastQ);
+    fails = 0;
+  } catch {
+    fails++;
+  }
+  // Keep showing the last good queue through short blips; flag it after ~15 seconds.
+  $('offline').classList.toggle('hidden', fails < 3);
+}
+refresh();
+setInterval(refresh, REFRESH_MS);
+// Reload every few hours so the screen picks up app updates without anyone touching it.
+setTimeout(() => location.reload(), 6 * 3600e3);
+</script>
+</body>
+</html>

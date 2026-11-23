@@ -59,10 +59,11 @@ async function load() {
     el('div', { class: 'stat red' }, el('b', {}, t.total || 0), 'walk-ins'),
     el('div', { class: 'stat green' }, el('b', {}, t.resolved || 0), 'resolved'),
     el('div', { class: 'stat gray' }, el('b', {}, t.left_count || 0), 'left / no-show'),
+    el('div', { class: 'stat green' }, el('b', {}, t.self_solved || 0), 'fixed it themselves'),
     el('div', { class: 'stat amber' }, el('b', {}, t.avg_wait_min != null ? t.avg_wait_min + ' min' : '–'), 'avg. wait to claim'),
     el('div', { class: 'stat amber' }, el('b', {}, t.avg_handle_min != null ? t.avg_handle_min + ' min' : '–'), 'avg. time helping'));
   bars('byLocation', r.byLocation, (x) => x.avg_wait_min != null ? `avg wait ${x.avg_wait_min} min` : null);
-  bars('byIssue', r.byIssue);
+  bars('byIssue', r.byIssue, (x) => x.self_solved ? `${x.self_solved} fixed it themselves` : null);
   bars('byConsultant', r.byConsultant);
 
   const hours = {}; const days = {};

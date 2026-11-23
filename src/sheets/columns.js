@@ -20,6 +20,7 @@ const COLUMNS = [
   ['closed_by', 'Closed by'],
   ['purged_at', 'Details erased at'],
   ['synced_at', 'Last synced'],
+  ['close_reason', 'Close reason'], // blank, or self_solved (fixed it with the self-help guide)
 ];
 const HEADERS = COLUMNS.map(([, h]) => h);
 
