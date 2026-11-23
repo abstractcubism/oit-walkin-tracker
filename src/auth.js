@@ -124,10 +124,11 @@ function loadIdentity(req, res, next) {
     req.user = db.prepare(`SELECT u.* FROM sessions s JOIN users u ON u.email = s.email
                            WHERE s.token_hash = ? AND s.expires_at > ? AND u.active = 1`).get(sha256(c.sid), now()) || null;
   }
-  if (c.kiosk) {
-    req.device = db.prepare(`SELECT d.*, l.name AS location_name FROM devices d JOIN locations l ON l.id = d.location_id
-                             WHERE d.token_hash = ? AND d.revoked_at IS NULL`).get(sha256(c.kiosk)) || null;
-  }
+  const linked = (token, kind) => db.prepare(`SELECT d.*, l.name AS location_name FROM devices d JOIN locations l ON l.id = d.location_id
+                                              WHERE d.token_hash = ? AND d.kind = ? AND d.revoked_at IS NULL`).get(sha256(token), kind) || null;
+  if (c.kiosk) req.device = linked(c.kiosk, 'kiosk');
+  // A TV screen has its own cookie and token kind, so it can read the queue but never submit walk-ins.
+  if (c.tv) req.display = linked(c.tv, 'display');
   next();
 }
 
@@ -151,7 +152,13 @@ function requireDevice(req, res, next) {
   res.status(401).json({ error: 'This iPad is not set up. A consultant needs to set it up.' });
 }
 
+function requireDisplay(req, res, next) {
+  if (req.display) return next();
+  if (wantsHtml(req)) return res.redirect('/setup');
+  res.status(401).json({ error: 'This screen is not set up. A consultant needs to set it up.' });
+}
+
 module.exports = {
   sha256, newToken, setCookie, authorize, providerFor, verifyGoogle, microsoftStart, microsoftFinish, safeNext, startSession, endSession,
-  loadIdentity, requireUser, requireAdmin, requireDevice,
+  loadIdentity, requireUser, requireAdmin, requireDevice, requireDisplay,
 };

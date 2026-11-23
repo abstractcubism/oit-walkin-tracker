@@ -211,15 +211,6 @@ $('goIcon').replaceWith(icon('arrow-right'));
   ['touchend', 'touchcancel', 'mouseup', 'mouseleave'].forEach((ev) => w.addEventListener(ev, stop));
 })();
 
-// Pick an icon for each issue by keyword, so admins can add their own buttons.
-const ICON_RULES = [
-  [/duo|2fa|mfa|two.?factor/i, 'shield-check'], [/password|netid|login|account/i, 'key-round'],
-  [/wi-?fi|wireless|network|internet|eduroam/i, 'wifi'], [/e-?mail|outlook|gmail/i, 'mail'],
-  [/canvas|course|class/i, 'graduation-cap'], [/print/i, 'printer'], [/software|install|office|app/i, 'download'],
-  [/laptop|hardware|computer|repair/i, 'laptop'], [/phone|mobile/i, 'smartphone'], [/virus|security|phish|scam/i, 'shield-alert'],
-  [/zoom|video|webex|teams/i, 'video'], [/monitor|display|screen|projector/i, 'monitor'], [/storage|drive|backup|file/i, 'hard-drive'],
-];
-const iconFor = (label) => (ICON_RULES.find(([re]) => re.test(label)) || [null, 'circle-help'])[1];
 
 function tick() { $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
 setInterval(tick, 15000); tick();

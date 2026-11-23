@@ -185,3 +185,68 @@ test('retention erases personal details on old closed walk-ins only', async () =
   assert.deepEqual(rows.map((r) => r.netid), [null, 'old2']);
   assert.equal(rows[0].ticket, 'INC0000001');
 });
+
+test('TV queue screen shows the location queue, and cannot submit', async () => {
+  const staff = client();
+  await staff('POST', '/api/auth/dev', { email: 'boss@oit.rutgers.edu' });
+  const hd = (await staff('GET', '/api/locations')).body.find((l) => l.name === 'Help Desk');
+
+  // Not linked yet: the page sends you to setup and the API refuses.
+  const tv = client();
+  assert.equal((await tv('GET', '/tv')).status, 302);
+  assert.equal((await tv('GET', '/api/tv/queue')).status, 401);
+
+  // Link the TV to the Help Desk; the consultant is signed out on it.
+  await tv('POST', '/api/auth/dev', { email: 'boss@oit.rutgers.edu' });
+  assert.equal((await tv('POST', '/api/tv/setup', { location_id: hd.id })).status, 200);
+  assert.equal((await tv('GET', '/api/me')).status, 401, 'consultant signed out on the TV');
+  assert.equal((await tv('GET', '/tv')).status, 200);
+  assert.equal((await tv('GET', '/')).location, '/tv');
+
+  // A TV token is not a kiosk token.
+  assert.equal((await tv('POST', '/api/kiosk/walkins', { netid: 'tv111', issue_type: 'Canvas' })).status, 401);
+  assert.equal((await tv('GET', '/api/walkins')).status, 401);
+
+  const ipad = client();
+  await ipad('POST', '/api/auth/dev', { email: 'boss@oit.rutgers.edu' });
+  await ipad('POST', '/api/kiosk/setup', { location_id: hd.id });
+  const a = (await ipad('POST', '/api/kiosk/walkins', { netid: 'qrs123', issue_type: 'Canvas', description: 'Can not see my   course' })).body.id;
+  const b = (await ipad('POST', '/api/kiosk/walkins', { name: 'Jordan Lee', email: 'jordan@example.com', description: 'x'.repeat(100) })).body.id;
+  const c = (await ipad('POST', '/api/kiosk/walkins', { netid: 'tuv456', issue_type: 'Canvas' })).body.id;
+  const d = (await ipad('POST', '/api/kiosk/walkins', { netid: 'res789', issue_type: 'Canvas' })).body.id;
+  await staff('POST', `/api/walkins/${c}/claim`, {});
+  await staff('POST', `/api/walkins/${d}/update`, { ticket: 'INC0099999' });
+  await staff('POST', `/api/walkins/${d}/resolve`, {});
+
+  const q = (await tv('GET', '/api/tv/queue')).body;
+  q.waiting = q.waiting.filter((w) => w.id >= a); // ignore leftovers from earlier tests
+  assert.equal(q.location, 'Help Desk');
+  assert.deepEqual(q.waiting.map((w) => w.who), ['qrs123', 'Jordan L.'], 'oldest first; no-NetID walk-ins show first name + last initial');
+  assert.deepEqual(q.waiting.map((w) => w.issue), ['Canvas', 'Something else']);
+  assert.equal(q.waiting[0].desc, 'Can not see my course');
+  assert.ok(q.waiting[1].desc.length <= 60, 'description is shortened');
+  // Just claimed: lit up as "calling" with the consultant's first name, then with a consultant.
+  assert.deepEqual(q.calling.map((w) => [w.who, w.by]), [['tuv456', 'boss']]);
+  assert.equal(q.helping.length, 0);
+  const { db } = require('../src/db');
+  db.prepare('UPDATE walkins SET claimed_at = ? WHERE id = ?').run(new Date(Date.now() - 3 * 60e3).toISOString(), c);
+  db.prepare("UPDATE users SET name = 'Alex Kim' WHERE email = 'boss@oit.rutgers.edu'").run();
+  const q2 = (await tv('GET', '/api/tv/queue')).body;
+  assert.equal(q2.calling.length, 0);
+  assert.deepEqual(q2.helping.map((w) => [w.who, w.by]), [['tuv456', 'Alex']]);
+  assert.ok(q.helpedToday >= 1);
+  assert.ok(!JSON.stringify(q).includes('jordan@example.com'), 'never shows email');
+
+  // Other locations don't appear.
+  const arcPad = client();
+  await arcPad('POST', '/api/auth/dev', { email: 'boss@oit.rutgers.edu' });
+  const arc = (await arcPad('GET', '/api/locations')).body.find((l) => l.name === 'ARC');
+  await arcPad('POST', '/api/kiosk/setup', { location_id: arc.id });
+  await arcPad('POST', '/api/kiosk/walkins', { netid: 'arc999', issue_type: 'Canvas' });
+  assert.equal((await tv('GET', '/api/tv/queue')).body.waiting.filter((w) => w.id >= a).length, 2);
+
+  // Admin can unlink it.
+  const dev = (await staff('GET', '/api/admin')).body.devices.find((x) => x.kind === 'display');
+  await staff('POST', `/api/admin/devices/${dev.id}/revoke`, {});
+  assert.equal((await tv('GET', '/api/tv/queue')).status, 401);
+});
