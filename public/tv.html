@@ -47,7 +47,9 @@
   .label { font-size: 1.9vh; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--soft); }
 
   /* Waiting list: NetID, issue, time checked in. */
-  #rows { margin-top: 1.2vh; border-top: 1px solid var(--rule); min-height: 0; overflow: hidden; }
+  /* Extra side room so the red "Now calling" band can bleed past the columns without being clipped. */
+  #rows { margin: 1.2vh -1.6vw 0; padding: 0 1.6vw; min-height: 0; overflow: hidden; position: relative; }
+  #rows::before { content: ""; position: absolute; top: 0; left: 1.6vw; right: 1.6vw; border-top: 1px solid var(--rule); }
   .row { display: grid; grid-template-columns: minmax(0, 15vw) minmax(0, 1fr) auto; align-items: center; column-gap: 2.4vw;
     padding: 1.9vh 0; border-bottom: 1px solid var(--rule); position: relative; }
   .row .who { font-family: var(--mono); font-size: 5.4vh; font-weight: 600; line-height: 1.05; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -71,7 +73,8 @@
   @keyframes leave { to { opacity: 0; transform: translateX(-4vw); max-height: 0; padding-top: 0; padding-bottom: 0; border-bottom-width: 0; } }
   .row.leave { max-height: 14vh; }
   /* Just claimed: the consultant is coming to find them. Lit up red until it moves across. */
-  .row.calling { background: var(--scarlet); color: #fff; padding-left: 1.6vw; padding-right: 1.6vw; padding-top: 3.6vh; border-bottom-color: var(--paper); animation: glow 2s ease-in-out infinite; }
+  /* The red band bleeds out past the list edges so its columns stay lined up with the other rows. */
+  .row.calling { background: var(--scarlet); color: #fff; margin: 0 -1.6vw; padding-left: 1.6vw; padding-right: 1.6vw; padding-top: 3.6vh; border-bottom-color: var(--paper); animation: glow 2s ease-in-out infinite; }
   .row.calling.lit { animation: light .9s ease-out, glow 2s ease-in-out .9s infinite; }
   .row.calling::before { content: "Now calling"; position: absolute; top: .6vh; left: 1.6vw; font-size: 1.5vh; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #fff; opacity: .85; }
   .row.calling .who, .row.calling .issue .icon, .row.calling .issue small, .row.calling .at { color: #fff; }

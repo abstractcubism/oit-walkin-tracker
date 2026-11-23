@@ -47,8 +47,17 @@ const config = {
   // many minutes (while the consultant comes to find them), then moves to "With a consultant".
   tvCallingMinutes: Number(process.env.TV_CALLING_MINUTES || 2),
 
-  // Slack incoming webhook. Leave empty to turn Slack posting off.
+  // Slack, two ways (see README):
+  //  - Bot (Claim button): set SLACK_BOT_TOKEN, SLACK_APP_TOKEN and SLACK_CHANNEL. Uses Socket Mode,
+  //    so the server connects out to Slack and needs no public URL.
+  //  - Post only: set SLACK_WEBHOOK_URL.
+  // Leave all empty to turn Slack off. If both are set, the bot is used.
   slackWebhookUrl: process.env.SLACK_WEBHOOK_URL || '',
+  slackBotToken: process.env.SLACK_BOT_TOKEN || '',
+  slackAppToken: process.env.SLACK_APP_TOKEN || '',
+  slackChannel: process.env.SLACK_CHANNEL || '',
+  // Only changed by the tests.
+  slackApiUrl: (process.env.SLACK_API_URL || 'https://slack.com/api').replace(/\/$/, ''),
 };
 
 // Every domain either provider accepts (used when an admin adds someone to the consultant list).
