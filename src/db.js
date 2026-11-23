@@ -124,6 +124,20 @@ for (const sql of [
   try { db.exec(sql); } catch { /* already there */ }
 }
 
+// Optional self-help page per issue button. When set, the iPad's confirmation screen shows a
+// QR code for it ("While you wait, you can try this"). Only for issues people can fix themselves.
+try { db.exec('ALTER TABLE issue_types ADD COLUMN help_url TEXT'); } catch { /* already there */ }
+try { db.exec('ALTER TABLE issue_types ADD COLUMN help_title TEXT'); } catch { /* already there */ }
+// Why a walk-in closed as 'left': NULL (left / no-show) or 'self_solved' (fixed it themselves).
+try { db.exec('ALTER TABLE walkins ADD COLUMN close_reason TEXT'); } catch { /* already there */ }
+// Starter self-help links (official Rutgers pages, checked Nov 2026). Admins can change or clear them.
+if (!db.prepare("SELECT 1 FROM meta WHERE key = 'help_links_v1'").get()) {
+  const set = db.prepare("UPDATE issue_types SET help_url = ?, help_title = ? WHERE label = ? AND help_url IS NULL");
+  set.run('https://netid.rutgers.edu/displayForgottenPasswordForm.htm', 'Reset a forgotten NetID password', 'NetID password');
+  set.run('https://it.rutgers.edu/eduroam/', 'Set up eduroam Wi-Fi on your device', 'Wi-Fi');
+  db.prepare("INSERT INTO meta (key, value) VALUES ('help_links_v1', '1')").run();
+}
+
 // "Wi-Fi" + "eduroam,RUatHome" -> ['eduroam', 'RUatHome']
 const parseOptions = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
 

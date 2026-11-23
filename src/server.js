@@ -1,5 +1,6 @@
 const path = require('path');
 const express = require('express');
+const QRCode = require('qrcode');
 const config = require('./config');
 const { db, now, parseOptions } = require('./db');
 const auth = require('./auth');
@@ -140,14 +141,30 @@ app.post('/api/kiosk/unlink', auth.requireUser, (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/kiosk/info', auth.requireDevice, (req, res) => {
-  db.prepare('UPDATE devices SET last_seen = ? WHERE id = ?').run(now(), req.device.id);
-  res.json({
-    location: req.device.location_name,
-    minDescription: MIN_DESCRIPTION,
-    issues: db.prepare('SELECT label, options FROM issue_types WHERE active = 1 ORDER BY sort, label').all()
-      .map((r) => ({ label: r.label, options: parseOptions(r.options) })),
-  });
+// QR codes for self-help links, drawn as SVG on the server so the iPad needs no extra script.
+const qrCache = new Map();
+async function qrSvg(url) {
+  if (!qrCache.has(url)) {
+    if (qrCache.size > 200) qrCache.clear();
+    qrCache.set(url, await QRCode.toString(url, { type: 'svg', margin: 0, errorCorrectionLevel: 'M', color: { dark: '#141414', light: '#0000' } }));
+  }
+  return qrCache.get(url);
+}
+
+app.get('/api/kiosk/info', auth.requireDevice, async (req, res, next) => {
+  try {
+    db.prepare('UPDATE devices SET last_seen = ? WHERE id = ?').run(now(), req.device.id);
+    const rows = db.prepare('SELECT label, options, help_url, help_title FROM issue_types WHERE active = 1 ORDER BY sort, label').all();
+    res.json({
+      location: req.device.location_name,
+      minDescription: MIN_DESCRIPTION,
+      issues: await Promise.all(rows.map(async (r) => ({
+        label: r.label,
+        options: parseOptions(r.options),
+        help: r.help_url ? { url: r.help_url, title: r.help_title || '', qr: await qrSvg(r.help_url) } : null,
+      }))),
+    });
+  } catch (e) { next(e); }
 });
 
 const MIN_DESCRIPTION = 10; // characters, when no issue button is picked
@@ -186,6 +203,19 @@ app.post('/api/kiosk/walkins', auth.requireDevice, (req, res) => {
       issueType || null, description || null, slack.enabled() ? 'pending' : 'off');
   slack.kick();
   res.json({ ok: true, id: Number(r.lastInsertRowid) });
+});
+
+// "I'm all set" on the confirmation screen: the person fixed it with the self-help link and
+// leaves the line. Only this iPad, only right after check-in, and only while still waiting.
+const SELF_SOLVE_MINUTES = 5;
+app.post('/api/kiosk/walkins/:id/self-solved', auth.requireDevice, (req, res) => {
+  const since = new Date(Date.now() - SELF_SOLVE_MINUTES * 60e3).toISOString();
+  const r = db.prepare(`UPDATE walkins SET status='left', close_reason='self_solved', closed_at=?
+                        WHERE id=? AND device_id=? AND status='waiting' AND created_at >= ?`)
+    .run(now(), Number(req.params.id), req.device.id, since);
+  if (r.changes === 0) return bad(res, 'A consultant already has you. Let them know you\'re all set.', 409);
+  slack.changed(req.params.id);
+  res.json({ ok: true });
 });
 
 // ---------- TV queue screen ----------
@@ -295,11 +325,13 @@ app.get('/api/reports', auth.requireUser, (req, res) => {
   res.json({
     from, to,
     totals: db.prepare(`SELECT COUNT(*) AS total,
-        SUM(status='resolved') AS resolved, SUM(status='left') AS left_count, SUM(status IN ('waiting','claimed')) AS open,
+        SUM(status='resolved') AS resolved, SUM(status='left' AND close_reason IS NULL) AS left_count,
+        SUM(close_reason='self_solved') AS self_solved, SUM(status IN ('waiting','claimed')) AS open,
         ${MINUTES('w.created_at', 'w.claimed_at')} AS avg_wait_min,
         ${MINUTES('w.claimed_at', 'w.closed_at')} AS avg_handle_min ${base}`).get(from, to),
     byLocation: q(`SELECT l.name AS label, COUNT(*) AS n, ${MINUTES('w.created_at', 'w.claimed_at')} AS avg_wait_min ${base} GROUP BY l.name ORDER BY n DESC`),
-    byIssue: q(`SELECT COALESCE(w.issue_type, 'Something else') AS label, COUNT(*) AS n ${base} GROUP BY label ORDER BY n DESC`),
+    byIssue: q(`SELECT COALESCE(w.issue_type, 'Something else') AS label, COUNT(*) AS n, SUM(w.close_reason='self_solved') AS self_solved
+                ${base} GROUP BY label ORDER BY n DESC`),
     byConsultant: q(`SELECT COALESCE(u.name, w.claimed_by) AS label, COUNT(*) AS n ${base.replace('WHERE', 'LEFT JOIN users u ON u.email = w.claimed_by WHERE')} AND w.claimed_by IS NOT NULL GROUP BY w.claimed_by ORDER BY n DESC`),
     // Raw timestamps; the browser buckets them by local hour/day.
     times: q(`SELECT w.created_at ${base}`).map((r) => r.created_at),
@@ -316,7 +348,7 @@ app.get('/api/reports/export.csv', auth.requireUser, (req, res) => {
   const [from, to] = range(req);
   const rows = db.prepare(`${WALKIN_SELECT} WHERE w.created_at >= ? AND w.created_at < ? ORDER BY w.created_at`).all(from, to);
   const cols = ['id', 'created_at', 'location', 'netid', 'name', 'email', 'issue_type', 'description', 'status',
-    'claimed_by', 'claimed_at', 'ticket', 'closed_at', 'closed_by', 'notes'];
+    'claimed_by', 'claimed_at', 'ticket', 'closed_at', 'closed_by', 'close_reason', 'notes'];
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="walkins-${from.slice(0, 10)}-to-${to.slice(0, 10)}.csv"`);
   res.send([cols.join(','), ...rows.map((r) => cols.map((c) => csvCell(r[c])).join(','))].join('\r\n'));
@@ -393,6 +425,14 @@ app.post('/api/admin/issues', auth.requireAdmin, (req, res) => {
   if (typeof req.body.options === 'string') extra.options = parseOptions(req.body.options).map((o) => o.slice(0, 40)).join(',');
   else if (!req.body.id) extra.options = '';
   if (String(req.body.label || '').includes(' · ')) return bad(res, 'Button text can\'t contain " · ".');
+  // Self-help link for the confirmation screen's QR code. Blank turns it off.
+  if (typeof req.body.help_url === 'string') {
+    const u = req.body.help_url.trim();
+    if (u && !/^https:\/\/[^\s]+$/i.test(u)) return bad(res, 'The self-help link must start with https://');
+    if (u.length > 300) return bad(res, 'That link is too long for a QR code people can scan easily.');
+    extra.help_url = u;
+    extra.help_title = clean(req.body.help_title, 80);
+  }
   saveRow(res, { table: 'issue_types', col: 'label', max: 60, body: req.body, extra });
 });
 

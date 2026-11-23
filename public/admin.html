@@ -36,7 +36,7 @@
     </div>
     <div class="card">
       <h3>Issue buttons on the iPad</h3>
-      <p class="small muted">Lower numbers show first.</p>
+      <p class="small muted">Lower numbers show first. A self-help link shows as a QR code on the iPad's "You're checked in" screen, for issues people can often fix themselves while they wait.</p>
       <table><tbody id="issues"></tbody></table>
       <form class="add row" id="addIssue"><input id="iLabel" placeholder="e.g. Duo / 2FA" required maxlength="60" aria-label="New issue"><input id="iSort" type="number" placeholder="Order" style="width:90px" aria-label="Order"><button class="primary" type="submit">Add</button></form>
     </div>
@@ -94,14 +94,19 @@ async function load() {
 
   $('issues').replaceChildren(...d.issues.map((i) => el('tr', { class: i.active ? null : 'off' },
     el('td', { class: 'muted', style: 'width:50px' }, i.sort),
-    el('td', {}, i.label, i.options ? el('div', { class: 'small muted' }, 'Choices: ' + i.options.split(',').join(', ')) : null),
+    el('td', {}, i.label, i.options ? el('div', { class: 'small muted' }, 'Choices: ' + i.options.split(',').join(', ')) : null,
+      i.help_url ? el('div', { class: 'small muted' }, 'Self-help: ', el('a', { href: i.help_url, target: '_blank', rel: 'noopener' }, i.help_title || i.help_url)) : null),
     el('td', { style: 'text-align:right;white-space:nowrap' },
       el('button', { onclick: () => {
         const label = prompt('Button text', i.label); if (label == null) return;
         const sort = prompt('Order (lower shows first)', i.sort); if (sort == null) return;
         const options = prompt('Optional sub-choices, comma-separated (e.g. eduroam, RUatHome). Leave blank for none.', (i.options || '').split(',').join(', '));
         if (options == null) return;
-        post('/api/admin/issues', { id: i.id, label, sort, options, active: !!i.active });
+        const help_url = prompt('Optional self-help link shown as a QR code after check-in (https://...). Leave blank for none.', i.help_url || '');
+        if (help_url == null) return;
+        const help_title = help_url.trim() ? prompt('Short line under the QR code (e.g. Reset a forgotten NetID password)', i.help_title || '') : '';
+        if (help_title == null) return;
+        post('/api/admin/issues', { id: i.id, label, sort, options, help_url, help_title, active: !!i.active });
       } }, 'Edit'), ' ',
       el('button', { onclick: () => post('/api/admin/issues', { id: i.id, active: !i.active }) }, i.active ? 'Hide' : 'Show')))));
 

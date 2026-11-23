@@ -109,7 +109,7 @@ function doneItem(w) {
     el('div', {}, fmtTime(w.created_at)),
     el('div', { class: 'who' }, who(w)),
     el('div', { class: 'issue' }, allTab() ? `${w.location} · ` : '', w.issue_type || 'Something else'),
-    el('div', {}, w.status === 'left' ? 'Left' : w.ticket ? el('code', {}, w.ticket) : 'Resolved'));
+    el('div', {}, w.status === 'left' ? closedLabel(w) : w.ticket ? el('code', {}, w.ticket) : 'Resolved'));
 }
 
 function render() {

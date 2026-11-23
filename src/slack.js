@@ -54,7 +54,7 @@ function message(w, { buttons = false } = {}) {
     waiting: ':hourglass_flowing_sand: Waiting',
     claimed: `:raising_hand: Claimed by *${by}* · ${ticket}`,
     resolved: `:white_check_mark: Resolved by *${esc(w.closed_by_name || w.closed_by || by)}* · ${ticket}`,
-    left: ':door: Left before being helped',
+    left: w.close_reason === 'self_solved' ? ':bulb: Fixed it themselves with the self-help guide' : ':door: Left before being helped',
   }[w.status];
   blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: `${status}   ·   <${link}|Open walk-in #${w.id}>` }] });
   if (w.status === 'waiting') {

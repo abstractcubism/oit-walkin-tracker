@@ -59,14 +59,17 @@ function act(id, action, me, body = {}) {
         db.prepare(`UPDATE walkins SET status='resolved', closed_at=?, closed_by=?,
                     claimed_by=COALESCE(claimed_by, ?), claimed_at=COALESCE(claimed_at, ?) WHERE id=?`).run(now(), me, me, now(), id);
         return {};
-      case 'left':
+      case 'left': {
+        // Plain "left / no-show", or "fixed it themselves" (e.g. with the self-help QR code).
         if (!['waiting', 'claimed'].includes(w.status)) return { code: 409, error: 'This walk-in is already closed.' };
-        db.prepare("UPDATE walkins SET status='left', closed_at=?, closed_by=? WHERE id=?").run(now(), me, id);
+        const reason = body.reason === 'self_solved' ? 'self_solved' : null;
+        db.prepare("UPDATE walkins SET status='left', close_reason=?, closed_at=?, closed_by=? WHERE id=?").run(reason, now(), me, id);
         return {};
+      }
       case 'reopen':
         if (!['resolved', 'left'].includes(w.status)) return { code: 409, error: 'This walk-in is still open.' };
         db.prepare(`UPDATE walkins SET status=CASE WHEN claimed_by IS NULL THEN 'waiting' ELSE 'claimed' END,
-                    closed_at=NULL, closed_by=NULL WHERE id=?`).run(id);
+                    closed_at=NULL, closed_by=NULL, close_reason=NULL WHERE id=?`).run(id);
         return {};
       default:
         return { code: 404, error: 'Unknown action.' };
