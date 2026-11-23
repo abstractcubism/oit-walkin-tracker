@@ -138,6 +138,22 @@ if (!db.prepare("SELECT 1 FROM meta WHERE key = 'help_links_v1'").get()) {
   db.prepare("INSERT INTO meta (key, value) VALUES ('help_links_v1', '1')").run();
 }
 
+// Software remediation consent, the last step of check-in. Walk-ins either sign it on the
+// iPad (consent = 'signed', with their printed name, finger signature and the exact text they agreed to), or
+// they'll use the official DocuSign form on their phone ('phone'). A consultant
+// can mark it signed after checking ('confirmed'). NULL = never answered.
+for (const col of ['consent TEXT', 'consent_name TEXT', 'consent_text TEXT', 'consent_sig TEXT', 'consent_at TEXT', 'consent_by TEXT']) {
+  try { db.exec(`ALTER TABLE walkins ADD COLUMN ${col}`); } catch { /* already there */ }
+}
+
+// Small key/value settings kept in meta, editable on the Admin page.
+const getSetting = (key, fallback) => {
+  const r = db.prepare('SELECT value FROM meta WHERE key = ?').get(key);
+  return r ? r.value : fallback;
+};
+const setSetting = (key, value) => db.prepare(`INSERT INTO meta (key, value) VALUES (?, ?)
+  ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(key, String(value));
+
 // "Wi-Fi" + "eduroam,RUatHome" -> ['eduroam', 'RUatHome']
 const parseOptions = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
 
@@ -161,4 +177,4 @@ function tx(fn) {
   }
 }
 
-module.exports = { db, now, tx, parseOptions };
+module.exports = { db, now, tx, parseOptions, getSetting, setSetting };

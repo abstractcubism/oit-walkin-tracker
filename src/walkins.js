@@ -14,9 +14,10 @@ function parseTicket(v) {
   return TICKET_RE.test(t) ? t : null;
 }
 
-const SELECT = `SELECT w.*, l.name AS location, cu.name AS claimed_by_name, xu.name AS closed_by_name
+const SELECT = `SELECT w.*, l.name AS location, cu.name AS claimed_by_name, xu.name AS closed_by_name, bu.name AS consent_by_name
   FROM walkins w JOIN locations l ON l.id = w.location_id
-  LEFT JOIN users cu ON cu.email = w.claimed_by LEFT JOIN users xu ON xu.email = w.closed_by`;
+  LEFT JOIN users cu ON cu.email = w.claimed_by LEFT JOIN users xu ON xu.email = w.closed_by
+  LEFT JOIN users bu ON bu.email = w.consent_by`;
 
 const get = (id) => db.prepare(`${SELECT} WHERE w.id = ?`).get(Number(id));
 const nameOf = (email) => (email ? db.prepare('SELECT name FROM users WHERE email=?').get(email)?.name || email : null);
@@ -66,6 +67,11 @@ function act(id, action, me, body = {}) {
         db.prepare("UPDATE walkins SET status='left', close_reason=?, closed_at=?, closed_by=? WHERE id=?").run(reason, now(), me, id);
         return {};
       }
+      case 'consent':
+        // A consultant checked the form (e.g. the confirmation on the person's phone) and marks it signed.
+        if (['signed', 'confirmed'].includes(w.consent)) return { code: 409, error: 'The permission form is already signed.' };
+        db.prepare("UPDATE walkins SET consent='confirmed', consent_at=?, consent_by=? WHERE id=?").run(now(), me, id);
+        return {};
       case 'reopen':
         if (!['resolved', 'left'].includes(w.status)) return { code: 409, error: 'This walk-in is still open.' };
         db.prepare(`UPDATE walkins SET status=CASE WHEN claimed_by IS NULL THEN 'waiting' ELSE 'claimed' END,

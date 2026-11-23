@@ -304,3 +304,80 @@ test('self-help QR on the check-in screen', async () => {
   assert.match(csv, /close_reason/);
   assert.match(csv, /self_solved/);
 });
+
+test('permission form: sign on the iPad or on a phone', async () => {
+  const staff = client();
+  await staff('POST', '/api/auth/dev', { email: 'boss@oit.rutgers.edu' });
+  const ipad = client();
+  await ipad('POST', '/api/auth/dev', { email: 'boss@oit.rutgers.edu' });
+  const loc = (await ipad('GET', '/api/locations')).body.find((l) => l.name === 'Help Desk');
+  await ipad('POST', '/api/kiosk/setup', { location_id: loc.id });
+
+  // On by default, with the official form text and a QR code for the DocuSign link.
+  const info = (await ipad('GET', '/api/kiosk/info')).body;
+  assert.match(info.consent.text, /^I hereby authorize OIT/);
+  assert.match(info.consent.text, /voluntarily agree to its terms\.$/);
+  assert.equal(info.consent.url, 'http://go.rutgers.edu/softwareFORM');
+  assert.match(info.consent.qr, /^<svg/);
+  assert.equal((await staff('GET', '/api/me')).body.consentOn, true);
+
+  const sig = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  const checkIn = async (netid) => (await ipad('POST', '/api/kiosk/walkins', { netid, issue_type: 'Laptop / hardware' })).body.id;
+
+  // Signed on the iPad: needs a name and a signature, and keeps the exact text.
+  const a = await checkIn('frm111');
+  assert.equal((await ipad('POST', `/api/kiosk/walkins/${a}/consent`, { method: 'signed', name: 'Pat Doe' })).status, 400, 'signature required');
+  assert.equal((await ipad('POST', `/api/kiosk/walkins/${a}/consent`, { method: 'signed', name: ' ', signature: sig })).status, 400, 'name required');
+  assert.equal((await ipad('POST', `/api/kiosk/walkins/${a}/consent`, { method: 'signed', name: 'Pat Doe', signature: 'data:text/html,<b>' })).status, 400);
+  const other = client();
+  await other('POST', '/api/auth/dev', { email: 'boss@oit.rutgers.edu' });
+  await other('POST', '/api/kiosk/setup', { location_id: loc.id });
+  assert.equal((await other('POST', `/api/kiosk/walkins/${a}/consent`, { method: 'signed', name: 'Pat Doe', signature: sig })).status, 409, 'only the same iPad');
+  assert.equal((await ipad('POST', `/api/kiosk/walkins/${a}/consent`, { method: 'signed', name: 'Pat Doe', signature: sig })).status, 200);
+  assert.equal((await ipad('POST', `/api/kiosk/walkins/${a}/consent`, { method: 'phone' })).status, 409, 'a signed form cannot be changed from the iPad');
+  let w = (await staff('GET', `/api/walkins/${a}`)).body;
+  assert.equal(w.consent, 'signed');
+  assert.equal(w.consent_name, 'Pat Doe');
+  assert.equal(w.consent_sig, sig);
+  assert.equal(w.consent_text, info.consent.text);
+  assert.equal((await staff('POST', `/api/walkins/${a}/consent`, {})).status, 409, 'already signed');
+  // The queue list leaves out the text and signature image.
+  const row = (await staff('GET', '/api/walkins?view=open')).body.find((x) => x.id === a);
+  assert.equal(row.consent, 'signed');
+  assert.ok(!('consent_sig' in row) && !('consent_text' in row));
+
+  // On a phone: the consultant checks and marks it signed.
+  const b = await checkIn('frm222');
+  assert.equal((await ipad('POST', `/api/kiosk/walkins/${b}/consent`, { method: 'phone' })).status, 200);
+  assert.equal((await staff('POST', `/api/walkins/${b}/consent`, {})).body.consent, 'confirmed');
+  w = (await staff('GET', `/api/walkins/${b}`)).body;
+  assert.equal(w.consent_by, 'boss@oit.rutgers.edu');
+
+  // No skipping.
+  const c = await checkIn('frm333');
+  assert.equal((await ipad('POST', `/api/kiosk/walkins/${c}/consent`, { method: 'skipped' })).status, 400);
+
+  // Admin: in-app only (no QR), text limits, and turning it off.
+  assert.equal((await staff('POST', '/api/admin/consent', { on: true, url: 'javascript:alert(1)', text: info.consent.text })).status, 400);
+  assert.equal((await staff('POST', '/api/admin/consent', { on: true, url: '', text: 'x'.repeat(3000) })).status, 400);
+  assert.equal((await staff('POST', '/api/admin/consent', { on: true, url: '', text: 'Para one is long enough.\n\n\nPara two.' })).status, 200);
+  const noQr = (await ipad('GET', '/api/kiosk/info')).body.consent;
+  assert.equal(noQr.qr, null);
+  assert.equal(noQr.text, 'Para one is long enough.\n\nPara two.');
+  const d = await checkIn('frm444');
+  assert.equal((await ipad('POST', `/api/kiosk/walkins/${d}/consent`, { method: 'phone' })).status, 400, 'no phone option without a link');
+  await staff('POST', '/api/admin/consent', { on: false, url: 'http://go.rutgers.edu/softwareFORM', text: info.consent.text });
+  assert.equal((await ipad('GET', '/api/kiosk/info')).body.consent, null);
+  assert.equal((await staff('GET', '/api/me')).body.consentOn, false);
+  await staff('POST', '/api/admin/consent', { on: true, url: 'http://go.rutgers.edu/softwareFORM', text: info.consent.text });
+
+  // CSV has the status; retention erases the name and signature with the other personal details.
+  assert.match((await staff('GET', '/api/reports/export.csv')).body, /consent,consent_name/);
+  const { db } = require('../src/db');
+  db.prepare("UPDATE walkins SET status='resolved', closed_at=?, created_at='2020-01-01T00:00:00.000Z' WHERE id=?").run(new Date().toISOString(), a);
+  require('../src/retention').purge();
+  w = (await staff('GET', `/api/walkins/${a}`)).body;
+  assert.equal(w.consent, 'signed');
+  assert.equal(w.consent_name, null);
+  assert.equal(w.consent_sig, null);
+});

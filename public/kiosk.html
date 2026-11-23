@@ -169,6 +169,52 @@
     .help .keep { margin-top: 12px; }
   }
 
+
+  /* Permission form: the last check-in step. The form's full text on the left, sign with a
+     finger or use the phone on the right. It stays inside this page, so Guided Access holds. */
+  .consent { position: fixed; inset: 0; z-index: 9; background: var(--paper); display: grid; grid-template-rows: auto minmax(0, 1fr);
+    padding: max(20px, env(safe-area-inset-top)) clamp(24px, 4vw, 52px) max(20px, env(safe-area-inset-bottom)); }
+  .consent .top { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; padding-bottom: 12px; border-bottom: 2px solid var(--ink); }
+  .consent h1 { font-size: clamp(1.4rem, 3.4vh, 1.9rem); line-height: 1.15; letter-spacing: -.01em; margin-top: 2px; }
+  .consent h1 .req { color: var(--scarlet); }
+  .consent .no { font-family: var(--mono); color: var(--soft); font-size: 1rem; white-space: nowrap; }
+  .consent .body { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); min-height: 0; }
+  .consent .terms { padding: 16px clamp(20px, 3vw, 40px) 0 0; border-right: 1px solid var(--rule); min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .consent .terms h2 { font-size: .82rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--soft); margin-bottom: 8px; }
+  .consent .text { font-size: 16px; line-height: 1.45; color: var(--ink); }
+  .consent .text p + p { margin-top: .55em; }
+  .consent .text p:last-child { font-weight: 600; }
+  .consent .sign { padding: 16px 0 0 clamp(20px, 3vw, 40px); display: flex; flex-direction: column; min-height: 0; }
+  .pad { position: relative; margin-top: 6px; height: clamp(110px, 20vh, 170px); background: #fff; border: 1px solid var(--rule); border-radius: 4px; }
+  .pad canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+  .pad .base { position: absolute; left: 18px; right: 18px; bottom: 30px; border-bottom: 1.5px solid var(--ink); pointer-events: none; }
+  .pad .x { position: absolute; left: 18px; bottom: 34px; font-size: 1.2rem; color: var(--soft); pointer-events: none; }
+  .pad .hint { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font-size: .9rem; color: var(--soft); pointer-events: none; }
+  .pad.inked .hint { visibility: hidden; }
+  .pad .clear { position: absolute; top: 4px; right: 4px; padding: 8px 12px; font-size: .95rem; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; }
+  .consent .row2 { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 24px; align-items: start; }
+  .consent .sig-label { margin-top: 16px; }
+  .consent .row2 .line { margin: 4px 0 0; font-size: 1.25rem; }
+  .consent .date { font-family: var(--mono); font-size: 1.05rem; margin-top: 4px; padding: 9px 0 8px; border-bottom: 2px solid var(--rule); }
+  .consent .go { margin-top: 14px; }
+  .consent .msg { min-height: 1.3em; margin-top: 6px; }
+  .phone { margin-top: auto; padding-top: 12px; border-top: 1px dashed var(--rule); display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 18px; align-items: center; }
+  .phone .qr { width: 104px; height: 104px; grid-row: 1 / span 2; }
+  .phone .qr svg { width: 100%; height: 100%; display: block; }
+  .phone p { font-size: 1rem; color: var(--soft); line-height: 1.35; }
+  .phone p b { color: var(--ink); font-weight: 600; }
+  .phone button { justify-self: start; margin-top: 8px; padding: 12px 18px; border: 1.5px solid var(--ink); border-radius: 4px; font-size: 1.05rem; font-weight: 600; }
+  .stub .note { font-size: 1rem; margin-top: 12px; color: var(--soft); }
+  @media (orientation: portrait) {
+    .consent .body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
+    .consent .terms { border-right: 0; padding-right: 0; border-bottom: 1px solid var(--rule); padding-bottom: 12px; }
+    .consent .sign { padding-left: 0; display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); column-gap: 28px; align-items: start; }
+    .consent .sign .mine { grid-column: 1; }
+    .phone { grid-column: 2; grid-row: 1; margin-top: 6px; border-top: 0; padding-top: 0; border-left: 1px dashed var(--rule); padding-left: 24px;
+      grid-template-columns: 1fr; justify-items: start; }
+    .phone .qr { grid-row: auto; width: 120px; height: 120px; margin-bottom: 10px; }
+  }
+
   .off { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: var(--paper); }
   .off h1 { font-size: 2rem; margin-bottom: 10px; }
   .off a { display: inline-block; margin-top: 20px; background: var(--ink); color: #fff; padding: 14px 28px; text-decoration: none; border-radius: 2px; font-weight: 600; }
@@ -243,6 +289,7 @@
       <div class="no"><span id="stubNo"></span><span id="stubTime"></span></div>
       <h1 id="stubHead" tabindex="-1">You're checked in.</h1>
       <p><span class="who" id="stubWho"></span>, <span id="stubText"></span></p>
+      <p class="note hidden" id="stubNote"></p>
     </div>
     <div class="help hidden" id="help">
       <div class="kind"><span id="guideIcon"></span>How-to guide</div>
@@ -260,6 +307,40 @@
     <h2 id="stillHead">Still there?</h2>
     <p id="stillText">This form clears in <span id="stillLeft">20</span> seconds so the next person can check in.</p>
     <button type="button" id="stillBtn">I need more time</button>
+  </div>
+</div>
+
+<div class="consent hidden" id="consentView" role="dialog" aria-modal="true" aria-labelledby="consentHead">
+  <div class="top">
+    <h1 id="consentHead"><span class="req">Required:</span> Permission to work on your device</h1>
+    <div class="no" id="consentNo"></div>
+  </div>
+  <div class="body">
+    <section class="terms" aria-label="Software Remediation and Troubleshooting Authorization">
+      <div class="text" id="consentText"></div>
+    </section>
+    <section class="sign" aria-label="Sign">
+      <div class="mine">
+        <div class="row2">
+          <div><div class="label">Date</div><div class="date" id="sigDate"></div></div>
+          <div><label class="label" for="sigName">Print name</label><input class="line" id="sigName" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done"></div>
+        </div>
+        <div class="label sig-label"><span id="sigLabel">Signature</span></div>
+        <div class="pad" id="pad">
+          <canvas id="sig" role="img" aria-labelledby="sigLabel"></canvas>
+          <span class="x" aria-hidden="true">&times;</span><span class="base"></span>
+          <span class="hint">Sign here with your finger</span>
+          <button type="button" class="clear" id="sigClear">Clear</button>
+        </div>
+        <button type="button" class="go" id="sigGo">I agree, sign <span id="sigIcon"></span></button>
+        <p class="msg" id="sigMsg" role="alert"></p>
+      </div>
+      <div class="phone" id="phone">
+        <div class="qr" id="consentQr" role="img" aria-label="QR code for the DocuSign permission form"></div>
+        <p><b>Or scan to sign on your phone.</b></p>
+        <button type="button" id="usePhone">I'll use my phone</button>
+      </div>
+    </section>
   </div>
 </div>
 
@@ -287,10 +368,13 @@ let hasSeating = false;
 let tried = false; // did they press Check in at least once?
 let helpFor = {};  // issue label -> { url, title, qr } for issues with a self-help link
 let doneTimer = null;
+let consent = null; // { text, url, qr } when the permission form step is on
+const CONSENT_IDLE_MS = 3 * 60 * 1000; // the form takes a while to read
 
 $('goIcon').replaceWith(icon('arrow-right'));
 $('brand').replaceWith(brandMark());
 $('guideIcon').replaceWith(icon('book-open'));
+$('sigIcon').replaceWith(icon('arrow-right'));
 
 // Staff exit: press and hold the logo for 3 seconds. It only opens the staff sign-in;
 // nothing changes on this iPad unless a consultant signs in.
@@ -425,7 +509,7 @@ let stillTimer = null;
 const isBusy = () => !!selected || ['netid', 'name', 'email', 'desc'].some((id) => $(id).value);
 function hideStill() { clearInterval(stillTimer); $('stillView').classList.add('hidden'); $('formView').inert = false; }
 function idleCheck() {
-  if (!$('doneView').classList.contains('hidden')) return;
+  if (!$('doneView').classList.contains('hidden') || !$('consentView').classList.contains('hidden')) return;
   if (!isBusy()) return reset();
   let left = STILL_S;
   $('stillLeft').textContent = left;
@@ -437,9 +521,16 @@ function idleCheck() {
     if (left <= 0) { hideStill(); reset(); } else if (left % 5 === 0) $('stillLeft').textContent = left;
   }, 1000);
 }
+// On the permission step, give up on it after a longer wait (they stay in line; the consultant
+// sees the form wasn't signed) and go back to a fresh check-in.
 function poke() {
   if (!$('stillView').classList.contains('hidden')) hideStill();
-  clearTimeout(idleTimer); idleTimer = setTimeout(idleCheck, IDLE_MS);
+  clearTimeout(idleTimer);
+  if (!$('consentView').classList.contains('hidden')) {
+    idleTimer = setTimeout(() => { $('consentView').classList.add('hidden'); $('formView').inert = false; reset(); }, CONSENT_IDLE_MS);
+  } else {
+    idleTimer = setTimeout(idleCheck, IDLE_MS);
+  }
 }
 ['input', 'click', 'touchstart', 'keydown'].forEach((ev) => document.addEventListener(ev, poke, { passive: true }));
 $('stillBtn').onclick = () => { hideStill(); poke(); };
@@ -450,6 +541,7 @@ async function load() {
   try {
     const info = await api('/api/kiosk/info');
     minDesc = info.minDescription || 10;
+    consent = info.consent || null;
     // Only the help desk has a waiting area, so only it tells people to sit down.
     hasSeating = /help\s*desk/i.test(info.location || '');
     helpFor = Object.fromEntries(info.issues.filter((i) => i.help).map((i) => [i.label, i.help]));
@@ -484,7 +576,8 @@ $('f').onsubmit = async (e) => {
     $('stubTime').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     $('stubWho').textContent = body.netid ? body.netid.toLowerCase() : body.name.split(' ')[0];
     $('stubText').textContent = hasSeating ? 'grab a seat. A consultant will come find you.' : 'a consultant will be with you shortly.';
-    showDone(r.id, selected !== OTHER ? helpFor[selected] : null);
+    const help = selected !== OTHER ? helpFor[selected] : null;
+    if (consent) showConsent(r.id, help); else showDone(r.id, help);
   } catch (x) {
     if (x.status === 401) showOff();
     $('msg').textContent = x.message;
@@ -495,8 +588,11 @@ $('f').onsubmit = async (e) => {
 
 // Confirmation stub. With a self-help link it gets a QR code, a Done button and an
 // "I'm all set" button that takes the person out of line (asked twice, so a stray tap can't).
-function showDone(id, help) {
+function showDone(id, help, signed) {
   $('stubHead').textContent = "You're checked in.";
+  $('stubNote').classList.toggle('hidden', !signed);
+  $('stubNote').textContent = signed === 'phone' ? 'Finish the DocuSign form on your phone before a consultant works on your device.'
+    : signed === 'signed' ? 'Permission form signed.' : '';
   $('stub').classList.toggle('wide', !!help);
   $('help').classList.toggle('hidden', !help);
   $('acts').classList.toggle('hidden', !help);
@@ -557,6 +653,90 @@ function confirmSolved(id) {
         $('acts').replaceChildren(el('span', { class: 'ask' }, x.message), el('button', { type: 'button', class: 'ink', onclick: closeDone }, 'Done'));
       }
     } }, "Yes, I'm all set"));
+}
+
+// ---------- Permission form (last step) ----------
+const pad = (() => {
+  const c = $('sig'); const ctx = c.getContext('2d');
+  let drawing = false; let last = null; let inked = false;
+  function size() {
+    const r = c.getBoundingClientRect(); const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#141414';
+    inked = false; $('pad').classList.remove('inked');
+  }
+  const pt = (e) => { const r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  c.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); c.setPointerCapture(e.pointerId); drawing = true; last = pt(e);
+    ctx.beginPath(); ctx.arc(last.x, last.y, 1.2, 0, Math.PI * 2); ctx.fillStyle = '#141414'; ctx.fill();
+    if (!inked) { inked = true; $('pad').classList.add('inked'); updateSign(); }
+  });
+  c.addEventListener('pointermove', (e) => {
+    if (!drawing) return; e.preventDefault();
+    const p = pt(e); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p;
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => c.addEventListener(ev, () => { drawing = false; }));
+  // A small PNG of the signature: 1x scale, ink on transparent.
+  function png() {
+    const r = c.getBoundingClientRect(); const o = document.createElement('canvas');
+    o.width = Math.round(r.width); o.height = Math.round(r.height);
+    o.getContext('2d').drawImage(c, 0, 0, o.width, o.height);
+    return o.toDataURL('image/png');
+  }
+  return { size, png, has: () => inked };
+})();
+$('sigClear').onclick = () => { pad.size(); updateSign(); };
+
+const signReady = () => pad.has() && $('sigName').value.replace(/[^\p{L}]/gu, '').length >= 2;
+function updateSign() { $('sigGo').classList.toggle('ready', signReady()); $('sigMsg').textContent = ''; }
+$('sigName').addEventListener('input', updateSign);
+
+// Fit the form's full text in its column without scrolling: shrink the type a step at a time.
+function fitText() {
+  const box = $('consentText'); const col = box.parentElement;
+  for (let px = 17; px >= 13; px -= 0.5) {
+    box.style.fontSize = px + 'px';
+    if (box.offsetTop + box.scrollHeight <= col.clientHeight + col.offsetTop - 4) break;
+  }
+}
+window.addEventListener('resize', () => { if (!$('consentView').classList.contains('hidden')) { fitText(); pad.size(); updateSign(); } });
+
+function showConsent(id, help) {
+  $('consentNo').textContent = 'No. ' + String(id).padStart(3, '0');
+  $('consentText').replaceChildren(...consent.text.split(/\n\s*\n/).map((t) => el('p', {}, t)));
+  $('sigDate').textContent = new Date().toLocaleDateString([], { month: 'numeric', day: 'numeric', year: 'numeric' });
+  $('sigName').value = usingNetid ? '' : $('name').value.trim();
+  $('phone').classList.toggle('hidden', !consent.qr);
+  if (consent.qr) $('consentQr').innerHTML = consent.qr; // SVG drawn by our own server from the admin-set link
+  $('formView').inert = true; // keep Tab and VoiceOver inside the permission form
+  $('consentView').classList.remove('hidden');
+  fitText(); pad.size(); updateSign(); poke();
+
+  const finish = async (method) => {
+    const body = { method };
+    if (method === 'signed') {
+      if (!pad.has()) return nudge2('pad', 'Sign in the box with your finger.');
+      if (!signReady()) return nudge2('sigName', 'Print your full name.');
+      body.name = $('sigName').value.trim(); body.signature = pad.png();
+    }
+    try {
+      await api(`/api/kiosk/walkins/${id}/consent`, body);
+    } catch (x) {
+      if (x.status !== 409) { $('sigMsg').textContent = x.message; return; }
+      // Already claimed or too late: they're still in line, so carry on to the stub.
+    }
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    $('consentView').classList.add('hidden');
+    showDone(id, help, method);
+  };
+  $('sigGo').onclick = () => finish('signed');
+  $('usePhone').onclick = () => finish('phone');
+}
+
+function nudge2(id, text) {
+  const n = $(id); n.classList.remove('shake'); void n.offsetWidth; n.classList.add('shake');
+  $('sigMsg').textContent = text;
 }
 
 load();

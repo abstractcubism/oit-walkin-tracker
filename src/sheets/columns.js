@@ -21,6 +21,7 @@ const COLUMNS = [
   ['purged_at', 'Details erased at'],
   ['synced_at', 'Last synced'],
   ['close_reason', 'Close reason'], // blank, or self_solved (fixed it with the self-help guide)
+  ['consent', 'Permission form'], // blank, signed (on the iPad), phone (DocuSign) or confirmed (by a consultant)
 ];
 const HEADERS = COLUMNS.map(([, h]) => h);
 
