@@ -42,8 +42,8 @@
     </div>
   </div>
   <div class="card">
-    <h3>Linked iPads</h3>
-    <p class="small muted">If an iPad is lost or replaced, unlink it here and it stops working immediately.</p>
+    <h3>Linked iPads and TV screens</h3>
+    <p class="small muted">If an iPad or TV is lost or replaced, unlink it here and it stops working immediately.</p>
     <div style="overflow-x:auto"><table><thead><tr><th>Location</th><th>Set up by</th><th>Set up</th><th>Last seen</th><th></th></tr></thead><tbody id="devices"></tbody></table></div>
   </div>
 </main>
@@ -106,9 +106,9 @@ async function load() {
       el('button', { onclick: () => post('/api/admin/issues', { id: i.id, active: !i.active }) }, i.active ? 'Hide' : 'Show')))));
 
   $('devices').replaceChildren(...(d.devices.length ? d.devices.map((x) => el('tr', {},
-    el('td', {}, x.location), el('td', {}, x.created_by), el('td', {}, fmtDateTime(x.created_at)), el('td', {}, x.last_seen ? fmtDateTime(x.last_seen) : 'never'),
-    el('td', { style: 'text-align:right' }, el('button', { onclick: () => { if (confirm(`Unlink the ${x.location} iPad?`)) post(`/api/admin/devices/${x.id}/revoke`, {}); } }, 'Unlink'))))
-    : [el('tr', {}, el('td', { class: 'muted' }, 'No iPads linked yet. Sign in on an iPad and go to /setup.'))]));
+    el('td', {}, x.location, x.kind === 'display' ? el('span', { class: 'muted' }, ' · TV screen') : el('span', { class: 'muted' }, ' · iPad')), el('td', {}, x.created_by), el('td', {}, fmtDateTime(x.created_at)), el('td', {}, x.last_seen ? fmtDateTime(x.last_seen) : 'never'),
+    el('td', { style: 'text-align:right' }, el('button', { onclick: () => { if (confirm(`Unlink the ${x.location} ${x.kind === 'display' ? 'TV screen' : 'iPad'}?`)) post(`/api/admin/devices/${x.id}/revoke`, {}); } }, 'Unlink'))))
+    : [el('tr', {}, el('td', { class: 'muted' }, 'Nothing linked yet. Sign in on an iPad or TV and go to /setup.'))]));
 }
 
 $('addUser').onsubmit = async (e) => {
