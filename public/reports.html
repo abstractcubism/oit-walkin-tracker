@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reports · OIT Walk-ins</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .bar { display: grid; grid-template-columns: 150px 1fr 40px; gap: 10px; align-items: center; margin: 6px 0; font-size: .9rem; }
+  .bar .track { background: #ebe6de; height: 10px; overflow: hidden; }
+  .bar .fill { background: var(--scarlet); height: 100%; border-radius: 0; }
+  .bar span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } .bar { grid-template-columns: 100px 1fr 34px; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="page-h">
+    <h1>Reports</h1>
+    <form class="row" id="f">
+      <label class="small" style="margin:0">From <input type="date" id="from"></label>
+      <label class="small" style="margin:0">To <input type="date" id="to"></label>
+      <button class="primary" type="submit">Update</button>
+      <a class="btn" id="csv">Download CSV</a>
+    </form>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="cols">
+    <div class="card"><h3>By location</h3><div id="byLocation"></div></div>
+    <div class="card"><h3>By issue</h3><div id="byIssue"></div></div>
+    <div class="card"><h3>Busiest hours</h3><div id="byHour"></div></div>
+    <div class="card"><h3>By day</h3><div id="byDay"></div></div>
+    <div class="card"><h3>Claimed by consultant</h3><div id="byConsultant"></div></div>
+  </div>
+</main>
+<script src="/common.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+function bars(target, rows, extra) {
+  const max = Math.max(1, ...rows.map((r) => r.n));
+  $(target).replaceChildren(...(rows.length ? rows.map((r) => el('div', { class: 'bar' },
+    el('span', { title: r.label }, r.label, extra ? el('div', { class: 'small muted' }, extra(r)) : null),
+    el('div', { class: 'track' }, el('div', { class: 'fill', style: `width:${(r.n / max) * 100}%` })),
+    el('span', {}, r.n))) : [el('p', { class: 'muted' }, 'No data.')]));
+}
+
+async function load() {
+  // Dates are local; the range covers whole days.
+  const from = new Date($('from').value + 'T00:00');
+  const to = new Date($('to').value + 'T00:00'); to.setDate(to.getDate() + 1);
+  const q = new URLSearchParams({ from: from.toISOString(), to: to.toISOString() });
+  $('csv').href = '/api/reports/export.csv?' + q;
+  const r = await api('/api/reports?' + q);
+  const t = r.totals;
+  $('stats').replaceChildren(
+    el('div', { class: 'stat red' }, el('b', {}, t.total || 0), 'walk-ins'),
+    el('div', { class: 'stat green' }, el('b', {}, t.resolved || 0), 'resolved'),
+    el('div', { class: 'stat gray' }, el('b', {}, t.left_count || 0), 'left / no-show'),
+    el('div', { class: 'stat amber' }, el('b', {}, t.avg_wait_min != null ? t.avg_wait_min + ' min' : '–'), 'avg. wait to claim'),
+    el('div', { class: 'stat amber' }, el('b', {}, t.avg_handle_min != null ? t.avg_handle_min + ' min' : '–'), 'avg. time helping'));
+  bars('byLocation', r.byLocation, (x) => x.avg_wait_min != null ? `avg wait ${x.avg_wait_min} min` : null);
+  bars('byIssue', r.byIssue);
+  bars('byConsultant', r.byConsultant);
+
+  const hours = {}; const days = {};
+  r.times.forEach((iso) => {
+    const d = new Date(iso);
+    hours[d.getHours()] = (hours[d.getHours()] || 0) + 1;
+    const k = d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    days[k] = (days[k] || 0) + 1;
+  });
+  const hourLabel = (h) => new Date(2000, 0, 1, h).toLocaleTimeString([], { hour: 'numeric' });
+  bars('byHour', Object.keys(hours).map(Number).sort((a, b) => a - b).map((h) => ({ label: hourLabel(h), n: hours[h] })));
+  bars('byDay', Object.entries(days).map(([label, n]) => ({ label, n })));
+}
+
+(async () => {
+  await staffNav('/reports');
+  const today = new Date();
+  const weekAgo = new Date(); weekAgo.setDate(today.getDate() - 6);
+  $('from').value = ymd(weekAgo);
+  $('to').value = ymd(today);
+  $('f').onsubmit = (e) => { e.preventDefault(); load(); };
+  load();
+})();
+</script>
+</body>
+</html>

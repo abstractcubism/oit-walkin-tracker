@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin · OIT Walk-ins</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .off td { color: var(--muted); }
+  form.add { margin-top: 12px; }
+  @media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="page-h"><h1>Admin</h1></div>
+  <p class="muted" id="summary"></p>
+  <div class="card">
+    <h3>Consultants</h3>
+    <p class="small muted">Only people on this list can sign in with Google. Microsoft @oit accounts are added here automatically the first time they sign in, and you can turn anyone off.</p>
+    <div style="overflow-x:auto"><table><thead><tr><th>Email</th><th>Name</th><th>Role</th><th></th></tr></thead><tbody id="users"></tbody></table></div>
+    <form class="add row" id="addUser">
+      <input id="uEmail" type="email" placeholder="netid@scarletmail.rutgers.edu" required style="flex:2;min-width:220px" aria-label="Email">
+      <input id="uName" placeholder="Name (optional)" style="flex:1;min-width:140px" aria-label="Name">
+      <select id="uRole" aria-label="Role"><option value="consultant">Consultant</option><option value="admin">Admin</option></select>
+      <button class="primary" type="submit">Add</button>
+    </form>
+  </div>
+  <div class="cols">
+    <div class="card">
+      <h3>Locations</h3>
+      <table><tbody id="locs"></tbody></table>
+      <form class="add row" id="addLoc"><input id="lName" placeholder="New location" required aria-label="New location" style="flex:1;min-width:140px"><input id="lCampus" placeholder="Campus" list="campuses" aria-label="Campus" style="width:150px"><button class="primary" type="submit">Add</button></form>
+      <datalist id="campuses"><option value="Busch"><option value="Livingston"><option value="College Ave"><option value="Cook/Douglass"></datalist>
+    </div>
+    <div class="card">
+      <h3>Issue buttons on the iPad</h3>
+      <p class="small muted">Lower numbers show first.</p>
+      <table><tbody id="issues"></tbody></table>
+      <form class="add row" id="addIssue"><input id="iLabel" placeholder="e.g. Duo / 2FA" required maxlength="60" aria-label="New issue"><input id="iSort" type="number" placeholder="Order" style="width:90px" aria-label="Order"><button class="primary" type="submit">Add</button></form>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Linked iPads</h3>
+    <p class="small muted">If an iPad is lost or replaced, unlink it here and it stops working immediately.</p>
+    <div style="overflow-x:auto"><table><thead><tr><th>Location</th><th>Set up by</th><th>Set up</th><th>Last seen</th><th></th></tr></thead><tbody id="devices"></tbody></table></div>
+  </div>
+</main>
+<script src="/common.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let me;
+
+async function post(path, body) {
+  try { await api(path, body); load(); return true; } catch (e) { toast(e.message); return false; }
+}
+
+async function load() {
+  const d = await api('/api/admin');
+  $('summary').textContent = `Personal details are erased after ${d.retentionDays} days. Slack posting is ${d.slack ? 'on' : 'off'}.`;
+
+  $('users').replaceChildren(...d.users.map((u) => {
+    const fixed = d.adminEmails.includes(u.email);
+    const role = el('select', { 'aria-label': 'Role', disabled: fixed || u.email === me.email,
+      onchange: () => post('/api/admin/users', { email: u.email, role: role.value, active: !!u.active }) },
+    el('option', { value: 'consultant' }, 'Consultant'), el('option', { value: 'admin' }, 'Admin'));
+    role.value = u.role;
+    return el('tr', { class: u.active ? null : 'off' },
+      el('td', {}, u.email, fixed ? el('div', { class: 'small muted' }, 'admin via server settings') : null),
+      el('td', {}, u.name || ''),
+      el('td', {}, role),
+      el('td', { style: 'text-align:right' }, fixed || u.email === me.email ? '' :
+        el('button', { onclick: () => post('/api/admin/users', { email: u.email, role: u.role, active: !u.active }) }, u.active ? 'Turn off' : 'Turn on')));
+  }));
+
+  $('locs').replaceChildren(...d.locations.map((l) => el('tr', { class: l.active ? null : 'off' },
+    el('td', {}, l.name, el('div', { class: 'small muted' }, l.campus || 'No campus set')),
+    el('td', { style: 'text-align:right;white-space:nowrap' },
+      el('button', { onclick: () => {
+        const n = prompt('Location name', l.name); if (n == null) return;
+        const c = prompt('Campus (e.g. Busch, Livingston, College Ave, Cook/Douglass)', l.campus || ''); if (c == null) return;
+        post('/api/admin/locations', { id: l.id, name: n, campus: c, active: !!l.active });
+      } }, 'Edit'), ' ',
+      el('button', { onclick: () => post('/api/admin/locations', { id: l.id, active: !l.active }) }, l.active ? 'Hide' : 'Show')))));
+
+  $('issues').replaceChildren(...d.issues.map((i) => el('tr', { class: i.active ? null : 'off' },
+    el('td', { class: 'muted', style: 'width:50px' }, i.sort),
+    el('td', {}, i.label, i.options ? el('div', { class: 'small muted' }, 'Choices: ' + i.options.split(',').join(', ')) : null),
+    el('td', { style: 'text-align:right;white-space:nowrap' },
+      el('button', { onclick: () => {
+        const label = prompt('Button text', i.label); if (label == null) return;
+        const sort = prompt('Order (lower shows first)', i.sort); if (sort == null) return;
+        const options = prompt('Optional sub-choices, comma-separated (e.g. eduroam, RUatHome). Leave blank for none.', (i.options || '').split(',').join(', '));
+        if (options == null) return;
+        post('/api/admin/issues', { id: i.id, label, sort, options, active: !!i.active });
+      } }, 'Edit'), ' ',
+      el('button', { onclick: () => post('/api/admin/issues', { id: i.id, active: !i.active }) }, i.active ? 'Hide' : 'Show')))));
+
+  $('devices').replaceChildren(...(d.devices.length ? d.devices.map((x) => el('tr', {},
+    el('td', {}, x.location), el('td', {}, x.created_by), el('td', {}, fmtDateTime(x.created_at)), el('td', {}, x.last_seen ? fmtDateTime(x.last_seen) : 'never'),
+    el('td', { style: 'text-align:right' }, el('button', { onclick: () => { if (confirm(`Unlink the ${x.location} iPad?`)) post(`/api/admin/devices/${x.id}/revoke`, {}); } }, 'Unlink'))))
+    : [el('tr', {}, el('td', { class: 'muted' }, 'No iPads linked yet. Sign in on an iPad and go to /setup.'))]));
+}
+
+$('addUser').onsubmit = async (e) => {
+  e.preventDefault();
+  if (await post('/api/admin/users', { email: $('uEmail').value, name: $('uName').value, role: $('uRole').value })) e.target.reset();
+};
+$('addLoc').onsubmit = async (e) => { e.preventDefault(); if (await post('/api/admin/locations', { name: $('lName').value, campus: $('lCampus').value })) e.target.reset(); };
+$('addIssue').onsubmit = async (e) => { e.preventDefault(); if (await post('/api/admin/issues', { label: $('iLabel').value, sort: $('iSort').value })) e.target.reset(); };
+
+(async () => { me = await staffNav('/admin'); load(); })();
+</script>
+</body>
+</html>

@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f4f1ec">
+<title>Check in · OIT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f4f1ec;
+    --ink: #141414;
+    --soft: #6b665f;
+    --rule: #d6d0c6;
+    --scarlet: #cc0033;
+    --sans: "IBM Plex Sans", -apple-system, "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { background: var(--paper); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+  input, textarea { font: inherit; color: inherit; -webkit-user-select: text; user-select: text; }
+  .hidden { display: none !important; }
+  .icon { width: 1em; height: 1em; flex: none; }
+
+  /* Whole screen is one fixed grid: header, then the two halves. Nothing scrolls. */
+  .screen { height: 100vh; height: 100dvh; display: grid; grid-template-rows: auto 1fr;
+    padding: max(20px, env(safe-area-inset-top)) clamp(24px, 4vw, 52px) max(24px, env(safe-area-inset-bottom)); }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 14px; border-bottom: 2px solid var(--ink); }
+  .word { font-weight: 700; font-size: 1.05rem; letter-spacing: .01em; }
+  .word span { color: var(--scarlet); }
+  .clock { font-family: var(--mono); font-size: 1.05rem; color: var(--soft); }
+  /* Hidden staff exit: press and hold the wordmark. A faint bar fills while holding. */
+  .word { position: relative; padding: 10px 14px 10px 0; -webkit-touch-callout: none; }
+  .word::after { content: ""; position: absolute; left: 0; bottom: 2px; height: 2px; width: 0; background: var(--scarlet); }
+  .word.holding::after { width: 100%; transition: width 3s linear; }
+
+  main { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); min-height: 0; }
+  .you { padding: clamp(18px, 3.5vh, 36px) clamp(24px, 3.5vw, 48px) 0 0; border-right: 1px solid var(--rule); display: flex; flex-direction: column; min-height: 0; }
+  .what { padding: clamp(18px, 3.5vh, 36px) 0 0 clamp(24px, 3.5vw, 48px); display: flex; flex-direction: column; min-height: 0; }
+
+  .label { font-size: .82rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--soft); display: flex; justify-content: space-between; align-items: baseline; }
+  .label .req { color: var(--scarlet); letter-spacing: .04em; }
+  .label .soft { color: #a39c91; letter-spacing: .04em; text-transform: none; font-weight: 500; }
+
+  /* NetID: typed straight onto the page, like filling in a ticket */
+  .netid { width: 100%; border: 0; border-bottom: 3px solid var(--ink); background: transparent; border-radius: 0;
+    font-family: var(--mono); font-weight: 600; font-size: clamp(2.4rem, 7vh, 3.6rem); letter-spacing: .02em; padding: 6px 0 8px; margin-top: 8px; outline: none; }
+  .netid::placeholder { color: #c9c2b6; }
+  .netid:focus { border-bottom-color: var(--scarlet); }
+  .line { width: 100%; border: 0; border-bottom: 2px solid var(--ink); background: transparent; border-radius: 0; font-size: 1.35rem; padding: 6px 0; margin: 4px 0 14px; outline: none; }
+  .line:focus { border-bottom-color: var(--scarlet); }
+  .swap { margin-top: 12px; font-size: 1rem; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; align-self: flex-start; padding: 6px 0; }
+
+  .more { display: flex; flex-direction: column; padding-top: clamp(20px, 4vh, 40px); }
+  .more textarea { width: 100%; height: 58px; resize: none; transition: height .25s ease; border: 1px solid var(--rule); background: #fbf9f6; border-radius: 4px;
+    padding: 12px 14px; font-size: 1.15rem; line-height: 1.35; margin-top: 8px; outline: none; }
+  .more textarea:focus { border-color: var(--ink); }
+  .more.big textarea { height: clamp(120px, 26vh, 230px); }
+  .more.needed textarea { border-color: var(--scarlet); }
+  .side { margin-top: auto; }
+  .count { font-family: var(--mono); font-size: .8rem; color: var(--scarlet); }
+
+  .go { margin-top: 16px; width: 100%; display: flex; align-items: center; justify-content: space-between; padding: clamp(16px, 2.6vh, 22px) 24px;
+    background: #cfc8bd; color: #fff; font-size: 1.4rem; font-weight: 600; border-radius: 4px; transition: background .2s; }
+  .go .icon { width: 28px; height: 28px; transition: transform .2s; }
+  .go.ready { background: var(--scarlet); }
+  .go.ready:active .icon { transform: translateX(6px); }
+  .msg { min-height: 1.4em; margin-top: 10px; font-size: 1rem; color: var(--scarlet); font-weight: 500; }
+
+  /* Issues: a printed menu rather than a wall of cards */
+  .issues { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; flex: 1; min-height: 0; border-top: 1px solid var(--rule); }
+  .issue { display: flex; flex-direction: column; justify-content: center; cursor: pointer; padding: 0 14px; text-align: left; font-size: clamp(1.05rem, 2.5vh, 1.3rem); font-weight: 500;
+    border-bottom: 1px solid var(--rule); min-height: 56px; position: relative; }
+  .issue:nth-child(odd) { border-right: 1px solid var(--rule); }
+  .issue .icon { width: 26px; height: 26px; color: var(--soft); }
+  .issue .main { display: flex; align-items: center; gap: 14px; width: 100%; }
+  .issue .tick { margin-left: auto; opacity: 0; color: #fff; }
+  .issue .opts { display: none; gap: 8px; margin-top: 10px; }
+  .issue.open .opts { display: flex; }
+  .issue.open .tick { display: none; }
+  .opt { flex: 1; padding: 10px 8px; border: 1.5px solid rgba(255,255,255,.55); border-radius: 3px; color: #fff; font-size: 1rem; font-weight: 600; font-style: normal; }
+  .opt[aria-pressed="true"] { background: var(--scarlet); border-color: var(--scarlet); }
+  .issue:active { background: #ebe6de; }
+  .issue[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .issue[aria-pressed="true"] .icon { color: #fff; }
+  .issue[aria-pressed="true"] .tick { opacity: 1; }
+  .issue.other { color: var(--soft); font-style: italic; }
+  .issue.other[aria-pressed="true"] { color: #fff; }
+
+  /* Nudge whatever is missing */
+  .shake { animation: shake .3s; }
+  @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
+  /* Confirmation: a stub, like the one you'd tear off at a counter */
+  .done { position: fixed; inset: 0; background: var(--paper); display: grid; place-items: center; z-index: 10; }
+  .stub { width: min(520px, 86vw); background: #fff; border: 1px solid var(--rule); padding: 40px 44px 34px; position: relative; animation: rise .35s ease-out; }
+  .stub::before, .stub::after { content: ""; position: absolute; left: -1px; right: -1px; height: 12px;
+    background: radial-gradient(circle at 8px 0, var(--paper) 7px, transparent 7.5px) 0 0 / 16px 12px repeat-x; }
+  .stub::before { top: -1px; }
+  .stub::after { bottom: -1px; transform: rotate(180deg); }
+  @keyframes rise { from { transform: translateY(24px); opacity: 0; } }
+  .stub .no { font-family: var(--mono); font-size: 1rem; color: var(--soft); display: flex; justify-content: space-between; border-bottom: 1px dashed var(--rule); padding-bottom: 16px; }
+  .stub h1 { font-size: 2.5rem; line-height: 1.1; margin: 22px 0 10px; letter-spacing: -.01em; }
+  .stub p { font-size: 1.2rem; color: var(--soft); }
+  .stub .who { font-family: var(--mono); font-weight: 600; color: var(--ink); }
+  .stub .timer { height: 3px; background: var(--rule); margin-top: 28px; }
+  .stub .timer div { height: 100%; width: 100%; background: var(--scarlet); }
+  .stub .timer.run div { width: 0; transition-property: width; transition-timing-function: linear; }
+
+  .off { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: var(--paper); }
+  .off h1 { font-size: 2rem; margin-bottom: 10px; }
+  .off a { display: inline-block; margin-top: 20px; background: var(--ink); color: #fff; padding: 14px 28px; text-decoration: none; border-radius: 4px; font-weight: 600; }
+
+  /* Portrait iPad: stack the halves */
+  @media (orientation: portrait) {
+    main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .you { border-right: 0; padding-right: 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 32px; align-items: start; }
+    .you .who { grid-column: 1 / -1; }
+    .you .more { grid-column: 1; }
+    .you .more.big textarea { height: 120px; }
+    .you .side { grid-column: 2; padding-top: 18px; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+    .what { padding-left: 0; padding-top: 20px; }
+  }
+  @media (orientation: landscape) { .you .side { display: contents; } .you .go { margin-top: auto; } }
+</style>
+</head>
+<body>
+<div class="screen" id="formView">
+  <header>
+    <div class="word" id="word"><span>Rutgers</span> OIT</div>
+    <div><span class="clock" id="clock"></span></div>
+  </header>
+  <main>
+    <form class="you" id="f" autocomplete="off" novalidate>
+      <div class="who">
+        <div id="netidBox">
+          <label class="label" for="netid">Your NetID</label>
+          <input class="netid" id="netid" placeholder="abc123" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done">
+        </div>
+        <div id="nameBox" class="hidden">
+          <label class="label" for="name">Name</label>
+          <input class="line" id="name" autocomplete="off" enterkeyhint="next">
+          <label class="label" for="email">Email</label>
+          <input class="line" id="email" type="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done">
+        </div>
+        <button type="button" class="swap" id="swap">I don't have a NetID</button>
+      </div>
+      <div class="more" id="more">
+        <label class="label" for="desc"><span id="descLabel">Anything we should know</span><span id="descReq"></span></label>
+        <textarea id="desc" maxlength="1000" enterkeyhint="done"></textarea>
+      </div>
+      <div class="side">
+        <button class="go" type="submit" id="go">Check in <span id="goIcon"></span></button>
+        <p class="msg" id="msg" role="alert"></p>
+      </div>
+    </form>
+    <section class="what" aria-labelledby="whatLabel">
+      <div class="label" id="whatLabel">What do you need help with?</div>
+      <div class="issues" id="issues" role="group" aria-labelledby="whatLabel"></div>
+    </section>
+  </main>
+</div>
+
+<div class="done hidden" id="doneView">
+  <div class="stub">
+    <div class="no"><span id="stubNo"></span><span id="stubTime"></span></div>
+    <h1>You're checked in.</h1>
+    <p><span class="who" id="stubWho"></span>, <span id="stubText"></span></p>
+    <div class="timer" id="timer"><div></div></div>
+  </div>
+</div>
+
+<div class="off hidden" id="offView">
+  <div><h1>This iPad isn't set up.</h1><p>A consultant needs to sign in and pick a location.</p><a href="/setup">Set up</a></div>
+</div>
+
+<script src="/common.js"></script>
+<script src="/icons.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const OTHER = '__other__';
+const IDLE_MS = 90 * 1000; // clear a half-filled form after 90s untouched
+const DONE_MS = 7 * 1000;  // how long the confirmation shows
+const NETID_RE = /^[a-z]{2,8}[0-9]{1,6}$/i;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+let selected = null;     // issue label, OTHER, or null
+let sub = null;          // chosen sub-choice, e.g. "eduroam"
+let subOptions = [];     // sub-choices of the selected issue
+let minDesc = 10;
+let idleTimer = null;
+let usingNetid = true;
+let hasSeating = false;
+let tried = false; // did they press Check in at least once?
+
+$('goIcon').replaceWith(icon('arrow-right'));
+
+// Staff exit: press and hold "Rutgers OIT" for 3 seconds. It only opens the staff sign-in;
+// nothing changes on this iPad unless a consultant signs in.
+(() => {
+  const w = $('word'); let t = null;
+  const start = (e) => { e.preventDefault(); w.classList.add('holding'); t = setTimeout(() => { location.href = '/login?next=/setup&from=kiosk'; }, 3000); };
+  const stop = () => { clearTimeout(t); w.classList.remove('holding'); };
+  w.addEventListener('touchstart', start, { passive: false }); w.addEventListener('mousedown', start);
+  ['touchend', 'touchcancel', 'mouseup', 'mouseleave'].forEach((ev) => w.addEventListener(ev, stop));
+})();
+
+// Pick an icon for each issue by keyword, so admins can add their own buttons.
+const ICON_RULES = [
+  [/duo|2fa|mfa|two.?factor/i, 'shield-check'], [/password|netid|login|account/i, 'key-round'],
+  [/wi-?fi|wireless|network|internet|eduroam/i, 'wifi'], [/e-?mail|outlook|gmail/i, 'mail'],
+  [/canvas|course|class/i, 'graduation-cap'], [/print/i, 'printer'], [/software|install|office|app/i, 'download'],
+  [/laptop|hardware|computer|repair/i, 'laptop'], [/phone|mobile/i, 'smartphone'], [/virus|security|phish|scam/i, 'shield-alert'],
+  [/zoom|video|webex|teams/i, 'video'], [/monitor|display|screen|projector/i, 'monitor'], [/storage|drive|backup|file/i, 'hard-drive'],
+];
+const iconFor = (label) => (ICON_RULES.find(([re]) => re.test(label)) || [null, 'circle-help'])[1];
+
+function tick() { $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+setInterval(tick, 15000); tick();
+
+function check() {
+  const who = usingNetid ? NETID_RE.test($('netid').value.trim())
+    : !!$('name').value.trim() && EMAIL_RE.test($('email').value.trim());
+  const needDesc = selected === OTHER; // a topic button is required; "Something else" needs a description
+  const len = $('desc').value.trim().length;
+  return { who, needDesc, desc: !needDesc || len >= minDesc, len, subOk: !subOptions.length || !!sub };
+}
+
+function update() {
+  const s = check();
+  $('more').classList.toggle('big', s.needDesc);
+  $('descLabel').textContent = s.needDesc ? 'Short description' : 'Anything we should know';
+  let tag = 'Optional'; let cls = '';
+  if (s.needDesc) { tag = s.desc ? 'Got it' : `Required · ${minDesc - s.len} more`; cls = s.desc ? '' : 'req'; }
+  $('descReq').textContent = tag;
+  $('descReq').className = cls;
+  $('desc').placeholder = s.needDesc ? 'What do you need help with?' : '';
+  $('more').classList.toggle('needed', s.needDesc && tried && !s.desc);
+  $('go').classList.toggle('ready', s.who && !!selected && s.desc && s.subOk);
+  $('msg').textContent = '';
+}
+['netid', 'name', 'email', 'desc'].forEach((id) => $(id).addEventListener('input', update));
+
+function setMode(netid) {
+  usingNetid = netid;
+  $('netidBox').classList.toggle('hidden', !netid);
+  $('nameBox').classList.toggle('hidden', netid);
+  $('swap').textContent = netid ? "I don't have a NetID" : 'I have a NetID';
+  update();
+}
+$('swap').onclick = () => { setMode(!usingNetid); (usingNetid ? $('netid') : $('name')).focus(); };
+
+// Return / Done closes the keyboard (or moves name -> email) instead of submitting.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.target.tagName === 'BUTTON') return;
+  e.preventDefault();
+  if (e.target.id === 'name') $('email').focus(); else e.target.blur();
+});
+
+function nudge(id, text) {
+  const n = $(id); n.classList.remove('shake'); void n.offsetWidth; n.classList.add('shake');
+  $('msg').textContent = text;
+}
+
+// Clear every issue selection (and close any sub-choice row).
+function clearIssues() {
+  document.querySelectorAll('.issue').forEach((b) => { b.setAttribute('aria-pressed', 'false'); b.classList.remove('open'); });
+  document.querySelectorAll('.opt').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+  selected = null; sub = null; subOptions = [];
+}
+
+function issueButton(label, value, iconName, extra, options) {
+  options = options || [];
+  const cell = el('div', { class: 'issue ' + (extra || ''), 'aria-pressed': 'false', role: 'button', tabindex: '0' });
+  const main = el('span', { class: 'main' }, icon(iconName), el('span', {}, label), icon('check', 'tick'));
+  cell.append(main);
+  if (options.length) {
+    // Buttons with sub-choices (e.g. Wi-Fi) open into a row of choices once tapped.
+    cell.classList.add('has-opts');
+    cell.append(el('span', { class: 'opts' }, options.map((o) => el('button', {
+      type: 'button', class: 'opt', 'aria-pressed': 'false',
+      onclick: (e) => {
+        e.stopPropagation();
+        cell.querySelectorAll('.opt').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+        e.currentTarget.setAttribute('aria-pressed', 'true');
+        sub = o;
+        update();
+      },
+    }, o))));
+  }
+  cell.addEventListener('click', () => {
+    const on = cell.getAttribute('aria-pressed') !== 'true';
+    if (!on && options.length) return; // tapping an open Wi-Fi cell outside a choice does nothing
+    clearIssues();
+    if (on) {
+      cell.setAttribute('aria-pressed', 'true');
+      cell.classList.toggle('open', options.length > 0);
+      selected = value; subOptions = options;
+    }
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    update();
+    if (on && value === OTHER) setTimeout(() => $('desc').focus(), 260);
+  });
+  return cell;
+}
+
+function reset() {
+  $('f').reset();
+  clearIssues();
+  tried = false;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  setMode(true);
+}
+
+function poke() { clearTimeout(idleTimer); idleTimer = setTimeout(reset, IDLE_MS); }
+['input', 'click', 'touchstart'].forEach((ev) => document.addEventListener(ev, poke, { passive: true }));
+
+const showOff = () => { $('formView').classList.add('hidden'); $('offView').classList.remove('hidden'); };
+
+async function load() {
+  try {
+    const info = await api('/api/kiosk/info');
+    minDesc = info.minDescription || 10;
+    // Only the help desk has a waiting area, so only it tells people to sit down.
+    hasSeating = /help\s*desk/i.test(info.location || '');
+    $('issues').replaceChildren(...info.issues.map((i) => issueButton(i.label, i.label, iconFor(i.label), '', i.options)),
+      issueButton('Something else', OTHER, 'pencil-line', 'other'));
+    clearIssues();
+    update();
+  } catch (e) { if (e.status === 401) showOff(); }
+}
+
+$('f').onsubmit = async (e) => {
+  e.preventDefault();
+  tried = true; update();
+  const s = check();
+  if (!s.who) return nudge(usingNetid ? 'netidBox' : 'nameBox', usingNetid ? 'Enter your NetID, like abc123.' : 'Enter your name and a valid email.');
+  if (!selected) return nudge('issues', 'Pick what you need help with. If nothing fits, choose Something else.');
+  if (!s.subOk) return nudge('issues', `Which ${selected}? Tap ${subOptions.join(' or ')}.`);
+  if (!s.desc) return nudge('more', 'Add a short description of the problem.');
+
+  const body = {
+    netid: usingNetid ? $('netid').value.trim() : '',
+    name: usingNetid ? '' : $('name').value.trim(),
+    email: usingNetid ? '' : $('email').value.trim(),
+    issue_type: selected && selected !== OTHER ? (sub ? `${selected} · ${sub}` : selected) : '',
+    description: $('desc').value.trim(),
+  };
+  $('go').disabled = true;
+  try {
+    const r = await api('/api/kiosk/walkins', body);
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    $('stubNo').textContent = 'No. ' + String(r.id).padStart(3, '0');
+    $('stubTime').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    $('stubWho').textContent = body.netid ? body.netid.toLowerCase() : body.name.split(' ')[0];
+    $('stubText').textContent = hasSeating ? 'grab a seat. A consultant will come find you.' : 'a consultant will be with you shortly.';
+    $('doneView').classList.remove('hidden');
+    const t = $('timer'); t.classList.remove('run'); t.firstElementChild.style.transitionDuration = DONE_MS + 'ms';
+    void t.offsetWidth; t.classList.add('run');
+    setTimeout(() => { reset(); $('doneView').classList.add('hidden'); }, DONE_MS);
+  } catch (x) {
+    if (x.status === 401) showOff();
+    $('msg').textContent = x.message;
+  } finally {
+    $('go').disabled = false;
+  }
+};
+
+load();
+// Every 10 min pick up new issue buttons (and notice if the iPad was unlinked), but never mid-entry.
+setInterval(() => {
+  const busy = selected || ['netid', 'name', 'email', 'desc'].some((id) => $(id).value);
+  if (!busy) load();
+}, 10 * 60 * 1000);
+</script>
+</body>
+</html>

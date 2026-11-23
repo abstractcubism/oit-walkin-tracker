@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · OIT Walk-ins</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body class="auth-bg">
+<div class="center">
+  <div class="card signin">
+    <div class="mark" aria-hidden="true">R</div>
+    <h1>OIT Walk-ins</h1>
+    <p class="muted">Consultant sign-in</p>
+    <div id="buttons"></div>
+    <p class="error" id="err" role="alert"></p>
+  </div>
+</div>
+<script src="/common.js"></script>
+<script>
+(async () => {
+  const params = new URLSearchParams(location.search);
+  const next = params.get('next') && params.get('next').startsWith('/') && !params.get('next').startsWith('//') ? params.get('next') : '/setup';
+  // Opened from the iPad's hidden staff exit: give an easy way back if it was by mistake.
+  if (params.get('from') === 'kiosk') {
+    document.querySelector('.signin').append(el('a', { class: 'btn', href: '/kiosk', style: 'margin-top:18px' }, '← Back to check-in'));
+    // If nobody signs in within a minute, go back to the check-in form on its own.
+    let idle = setTimeout(() => { location.href = '/kiosk'; }, 60000);
+    ['input', 'touchstart', 'click'].forEach((ev) => document.addEventListener(ev, () => {
+      clearTimeout(idle); idle = setTimeout(() => { location.href = '/kiosk'; }, 60000);
+    }, { passive: true }));
+  }
+  const err = document.getElementById('err');
+  const box = document.getElementById('buttons');
+  if (params.get('error')) err.textContent = params.get('error');
+
+  const cfg = await api('/api/auth/config');
+  const domains = (d) => d.map((x) => '@' + x).join(' or ');
+
+  if (cfg.microsoft) {
+    box.append(el('a', { class: 'btn primary', href: '/auth/microsoft?next=' + encodeURIComponent(next) }, 'Sign in with Microsoft'),
+      el('p', { class: 'small muted' }, 'OIT staff account (' + domains(cfg.microsoft.domains) + ')'));
+  }
+  if (cfg.google) {
+    const holder = el('div', { style: 'display:flex;justify-content:center;margin-top:10px' });
+    box.append(holder, el('p', { class: 'small muted' }, 'Google ' + domains(cfg.google.domains) + ' (must be on the consultant list)'));
+    const s = el('script', { src: 'https://accounts.google.com/gsi/client', async: true });
+    s.onload = () => {
+      google.accounts.id.initialize({
+        client_id: cfg.google.clientId,
+        hd: cfg.google.domains[0],
+        callback: async ({ credential }) => {
+          try { await api('/api/auth/google', { credential }); location.href = next; } catch (e) { err.textContent = e.message; }
+        },
+      });
+      google.accounts.id.renderButton(holder, { theme: 'outline', size: 'large', text: 'signin_with', width: 320 });
+    };
+    document.head.append(s);
+  }
+  if (cfg.devLogin) {
+    const input = el('input', { type: 'email', placeholder: 'you@scarletmail.rutgers.edu', style: 'width:100%', 'aria-label': 'Email' });
+    box.append(el('hr'), el('p', { class: 'small' }, el('strong', {}, 'Test mode: '), 'sign in by email only. Turn off DEV_LOGIN in production.'),
+      el('form', { onsubmit: async (e) => {
+        e.preventDefault();
+        try { await api('/api/auth/dev', { email: input.value }); location.href = next; } catch (x) { err.textContent = x.message; }
+      } }, input, el('button', { class: 'btn', type: 'submit' }, 'Test sign-in')),
+      el('button', { class: 'btn primary', type: 'button', onclick: async () => {
+        try { await api('/api/auth/dev', { skip: true }); location.href = next; } catch (x) { err.textContent = x.message; }
+      } }, 'Skip, sign in as test admin'));
+  }
+  if (!cfg.microsoft && !cfg.google && !cfg.devLogin) {
+    box.append(el('p', {}, 'No sign-in method is set up yet. Add Google or Microsoft keys to the server settings.'));
+  }
+})();
+</script>
+</body>
+</html>
