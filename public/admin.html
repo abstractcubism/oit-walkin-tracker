@@ -18,8 +18,8 @@
   <p class="muted" id="summary"></p>
   <div class="card">
     <h3>Consultants</h3>
-    <p class="small muted">Only people on this list can sign in with Google. Microsoft @oit accounts are added here automatically the first time they sign in, and you can turn anyone off.</p>
-    <div style="overflow-x:auto"><table><thead><tr><th>Email</th><th>Name</th><th>Role</th><th></th></tr></thead><tbody id="users"></tbody></table></div>
+    <p class="small muted">Only people on this list can sign in with Google. Microsoft @oit accounts are added here automatically the first time they sign in, and you can turn anyone off. When Slack's Claim button is on, people are matched to their Slack account by email the first time they press it; use Edit in the Slack column for anyone who doesn't match.</p>
+    <div style="overflow-x:auto"><table><thead><tr><th>Email</th><th>Name</th><th>Role</th><th class="slackcol">Slack</th><th></th></tr></thead><tbody id="users"></tbody></table></div>
     <form class="add row" id="addUser">
       <input id="uEmail" type="email" placeholder="netid@scarletmail.rutgers.edu" required style="flex:2;min-width:220px" aria-label="Email">
       <input id="uName" placeholder="Name (optional)" style="flex:1;min-width:140px" aria-label="Name">
@@ -58,7 +58,9 @@ async function post(path, body) {
 
 async function load() {
   const d = await api('/api/admin');
-  $('summary').textContent = `Personal details are erased after ${d.retentionDays} days. Slack posting is ${d.slack ? 'on' : 'off'}.`;
+  const slackText = { bot: 'on, with the Claim button', webhook: 'on (post only)', off: 'off' }[d.slack];
+  $('summary').textContent = `Personal details are erased after ${d.retentionDays} days. Slack is ${slackText}.`;
+  document.querySelectorAll('.slackcol').forEach((th) => { th.hidden = d.slack !== 'bot'; });
 
   $('users').replaceChildren(...d.users.map((u) => {
     const fixed = d.adminEmails.includes(u.email);
@@ -70,6 +72,12 @@ async function load() {
       el('td', {}, u.email, fixed ? el('div', { class: 'small muted' }, 'admin via server settings') : null),
       el('td', {}, u.name || ''),
       el('td', {}, role),
+      d.slack === 'bot' ? el('td', { class: 'small' },
+        u.slack_user_id ? el('span', { title: u.slack_user_id }, 'Linked') : el('span', { class: 'muted' }, 'Links on first Claim'), ' ',
+        el('button', { onclick: () => {
+          const v = prompt('Slack member ID (in Slack: their profile, ⋮, Copy member ID). Leave blank to unlink.', u.slack_user_id || '');
+          if (v != null) post('/api/admin/users/slack', { email: u.email, slack_user_id: v });
+        } }, 'Edit')) : null,
       el('td', { style: 'text-align:right' }, fixed || u.email === me.email ? '' :
         el('button', { onclick: () => post('/api/admin/users', { email: u.email, role: u.role, active: !u.active }) }, u.active ? 'Turn off' : 'Turn on')));
   }));
