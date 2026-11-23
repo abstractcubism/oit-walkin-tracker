@@ -67,8 +67,6 @@ h3, h2.h3 { font-size: 1.05rem; }
 .brandmark { display: inline-flex; align-items: center; padding: 9px; margin: -9px; text-decoration: none; color: var(--black); }
 .brandmark img { height: 36px; width: auto; display: block; }
 .brandmark .brand-text { font-weight: 700; font-size: 1.05rem; letter-spacing: .01em; color: var(--black); line-height: 36px; white-space: nowrap; }
-/* App name sits well clear of the signature, with no rule of its own, so it can't read as part of the logo. */
-.appname { font-weight: 600; color: var(--ink); margin-left: 28px; white-space: nowrap; }
 
 /* top bar: white, so the red-and-black Rutgers R sits on its preferred background */
 .topbar { background: var(--white); color: var(--ink); display: flex; align-items: center; gap: 4px; padding: 0 20px; min-height: 64px; border-bottom: 3px solid var(--scarlet); position: sticky; top: 0; z-index: 5; }
@@ -110,12 +108,32 @@ tbody tr:last-child td { border-bottom: 0; }
 th { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); background: var(--white); font-weight: 700; border-bottom: 2px solid var(--ink); }
 tbody tr:hover { background: var(--light-gray); }
 
-/* Status tags: always a word, the color is only a second cue (WCAG 1.4.1) */
-.chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border: 1px solid currentColor; font-size: .8rem; font-weight: 700; white-space: nowrap; }
-.chip.waiting { background: var(--white); color: var(--scarlet); }
-.chip.claimed { background: var(--warn-tint); color: var(--warn); }
-.chip.resolved { background: var(--ok-tint); color: var(--ok); }
-.chip.left { background: var(--light-gray); color: var(--muted); }
+/* Status tags: always a word, the color is only a second cue (WCAG 1.4.1). Flat label with a
+   solid bar on the left in the status color, no box outline. Every text color is 4.5:1 or better on its tint. */
+.chip { display: inline-flex; align-items: center; padding: 3px 9px 3px 7px; border-left: 4px solid var(--chip-bar);
+  background: var(--chip-bg); color: var(--chip-ink); font-size: .75rem; font-weight: 700; line-height: 1.3;
+  text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; vertical-align: middle; }
+.chip.waiting  { --chip-bar: var(--rutgers-red); --chip-bg: var(--white);       --chip-ink: var(--rutgers-red); }
+.chip.claimed  { --chip-bar: var(--yellow);      --chip-bg: var(--light-yellow); --chip-ink: var(--dark-gray); }
+.chip.resolved { --chip-bar: var(--teal);        --chip-bg: var(--light-teal);   --chip-ink: var(--teal); }
+.chip.left     { --chip-bar: var(--mid-gray);    --chip-bg: var(--light-gray);   --chip-ink: var(--dark-gray); }
+
+/* Icon-only button (e.g. Copy): red line icon, the accessible name is on aria-label.
+   36px square with a 44px tap area; icon is 5.8:1 on white (non-text contrast needs 3:1). */
+button.icon-btn { min-height: 36px; width: 36px; padding: 0; border-color: transparent; background: transparent; color: var(--scarlet); position: relative; }
+button.icon-btn::after { content: ""; position: absolute; inset: -4px; }
+button.icon-btn .icon { width: 20px; height: 20px; }
+button.icon-btn:hover { background: var(--light-gray); border-color: var(--line); color: var(--scarlet-dark); }
+
+/* Menu button (WAI-ARIA menu button pattern) */
+.menu-wrap { position: relative; display: inline-block; }
+.menu-wrap > button .icon { width: 18px; height: 18px; }
+.menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 10; min-width: 220px; margin: 0; padding: 4px 0; list-style: none;
+  background: var(--white); border: 1px solid var(--field); }
+.menu[hidden] { display: none; }
+.menu [role="menuitem"] { display: block; width: 100%; padding: 11px 16px; min-height: 44px; font-weight: 500; cursor: pointer; color: var(--ink); }
+.menu [role="menuitem"]:hover, .menu [role="menuitem"]:focus { background: var(--light-gray); color: var(--black); outline: none; }
+.menu [role="menuitem"]:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
 .late { color: var(--scarlet); font-weight: 700; }
 code { font-family: var(--mono); background: var(--light-gray); padding: 2px 7px; font-size: .9em; }
 
