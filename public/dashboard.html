@@ -23,6 +23,8 @@
   .q { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); }
   .item { display: grid; grid-template-columns: 76px 150px 1fr auto; gap: 18px; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); }
   .item:last-child { border-bottom: 0; }
+  /* Walk-ins you've claimed: listed first, with a Rutgers Red bar down the left edge (the bar is shape, not just color). */
+  .item.mine { box-shadow: inset 5px 0 0 var(--scarlet); background: var(--light-gray); }
   .wait { font-family: var(--mono); font-size: 1.25rem; font-weight: 600; }
   .wait small { display: block; font-family: "IBM Plex Sans", sans-serif; font-size: .75rem; color: var(--muted); font-weight: 500; }
   .item.late .wait { color: var(--scarlet); }
@@ -106,17 +108,18 @@ function openItem(w) {
   const mins = minutesSince(w.created_at);
   const late = w.status === 'waiting' && mins >= LATE_MIN;
   const waited = mins < 1 ? 'now' : mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h${mins % 60}`;
-  return el('div', { class: 'item' + (late ? ' late' : ''), 'data-key': w.id + ':' + w.status },
+  const mine = w.status === 'claimed' && w.claimed_by === me.email;
+  return el('div', { class: 'item' + (late ? ' late' : '') + (mine ? ' mine' : ''), 'data-key': w.id + ':' + w.status },
     el('div', { class: 'wait' }, el('span', { 'aria-hidden': 'true' }, waited),
       el('span', { class: 'sr-only' }, mins < 1 ? 'Just arrived' : `Waiting ${ago(w.created_at)}`),
       el('small', {}, fmtTime(w.created_at)), late ? el('span', { class: 'flag' }, 'Long wait') : null),
-    el('div', { class: 'who' }, who(w), !w.netid && w.email ? el('small', {}, w.email) : null, formTag(w)),
+    el('div', { class: 'who' }, who(w), mine ? el('span', { class: 'sr-only' }, ', claimed by you') : null, !w.netid && w.email ? el('small', {}, w.email) : null, formTag(w)),
     el('div', { class: 'issue' }, allTab() ? el('div', { class: 'loc' }, w.location) : null,
       w.issue_type || 'Something else', w.description ? el('small', {}, short(w.description, 110)) : null),
     el('div', { class: 'acts' },
       w.status === 'waiting'
         ? el('button', { class: 'primary', 'data-focus': 'claim' + w.id, 'aria-label': `Claim ${who(w)}`, onclick: () => act(w, 'claim') }, 'Claim')
-        : el('span', { class: 'claimed-by' }, w.claimed_by === me.email ? 'Yours' : 'Claimed by ' + (w.claimed_by_name || w.claimed_by).split(/[ @]/)[0]),
+        : w.claimed_by === me.email ? null : el('span', { class: 'claimed-by' }, 'Claimed by ' + (w.claimed_by_name || w.claimed_by).split(/[ @]/)[0]),
       el('a', { class: 'btn', 'data-focus': 'open' + w.id, 'aria-label': `Open ${who(w)}`, href: `/w/${w.id}` }, 'Open')));
 }
 
@@ -150,8 +153,10 @@ function render() {
 
 function draw() {
   const here = prefs.loc ? all.filter((w) => String(w.location_id) === String(prefs.loc)) : all;
+  // Your own claims first, then everyone waiting, then walk-ins other consultants have claimed; oldest first in each group.
+  const rank = (w) => (w.status === 'claimed' && w.claimed_by === me.email ? 0 : w.status === 'waiting' ? 1 : 2);
   const open = here.filter((w) => w.status === 'waiting' || w.status === 'claimed')
-    .sort((a, b) => (a.status === 'waiting' ? 0 : 1) - (b.status === 'waiting' ? 0 : 1) || a.created_at.localeCompare(b.created_at));
+    .sort((a, b) => rank(a) - rank(b) || a.created_at.localeCompare(b.created_at));
   const done = here.filter((w) => w.status === 'resolved' || w.status === 'left').sort((a, b) => b.created_at.localeCompare(a.created_at));
 
   const waitingAt = (id) => all.filter((w) => w.status === 'waiting' && (!id || String(w.location_id) === String(id))).length;
