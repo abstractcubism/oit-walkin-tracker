@@ -113,6 +113,17 @@ if (!db.prepare("SELECT 1 FROM meta WHERE key = 'wifi_options'").get()) {
 // A linked device is either a check-in iPad ('kiosk') or a read-only TV queue screen ('display').
 try { db.exec("ALTER TABLE devices ADD COLUMN kind TEXT NOT NULL DEFAULT 'kiosk'"); } catch { /* already there */ }
 
+// Slack bot mode: where each walk-in was posted (so the post can be updated), and whether the
+// post needs refreshing. Users can be linked to their Slack member ID.
+for (const sql of [
+  'ALTER TABLE walkins ADD COLUMN slack_channel TEXT',
+  'ALTER TABLE walkins ADD COLUMN slack_ts TEXT',
+  'ALTER TABLE walkins ADD COLUMN slack_sync INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE users ADD COLUMN slack_user_id TEXT',
+]) {
+  try { db.exec(sql); } catch { /* already there */ }
+}
+
 // Optional self-help page per issue button. When set, the iPad's confirmation screen shows a
 // QR code for it ("While you wait, you can try this"). Only for issues people can fix themselves.
 try { db.exec('ALTER TABLE issue_types ADD COLUMN help_url TEXT'); } catch { /* already there */ }
@@ -132,9 +143,12 @@ const parseOptions = (s) => String(s || '').split(',').map((x) => x.trim()).filt
 
 const now = () => new Date().toISOString();
 
-// Run fn inside a transaction.
+// Run fn inside a transaction. Nested calls join the outer transaction.
+let txDepth = 0;
 function tx(fn) {
+  if (txDepth > 0) return fn();
   db.exec('BEGIN IMMEDIATE');
+  txDepth++;
   try {
     const out = fn();
     db.exec('COMMIT');
@@ -142,6 +156,8 @@ function tx(fn) {
   } catch (e) {
     db.exec('ROLLBACK');
     throw e;
+  } finally {
+    txDepth--;
   }
 }
 
