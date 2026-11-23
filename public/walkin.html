@@ -18,7 +18,7 @@
   .netid { font-family: var(--mono); font-size: 1.8rem; font-weight: 600; }
   .back { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-weight: 600; margin-bottom: 14px; }
   .sn { display: inline-block; margin-top: 10px; font-weight: 600; }
-  .notice { background: var(--warn-tint); color: var(--warn); font-weight: 600; border-left: 4px solid var(--yellow); }
+  .notice { background: var(--light-gray); color: var(--black); font-weight: 600; border-left: 4px solid var(--black); }
   .ticket input { font-size: 1.2rem; width: 200px; text-transform: uppercase; }
   .form-ok { color: var(--ink); font-weight: 600; }
   .form-no { color: var(--scarlet); font-weight: 600; }
@@ -96,6 +96,7 @@ function menuButton(label, items) {
   });
   entries.forEach((li, i) => {
     li.addEventListener('click', () => choose(i));
+    li.addEventListener('mouseenter', () => li.focus());  // one highlighted item at a time, mouse or keyboard
     li.addEventListener('keydown', (e) => {
       const k = e.key;
       if (k === 'ArrowDown') { e.preventDefault(); focusItem(i + 1); }

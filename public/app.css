@@ -109,14 +109,14 @@ th { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color:
 tbody tr:hover { background: var(--light-gray); }
 
 /* Status tags: always a word, the color is only a second cue (WCAG 1.4.1). Flat label with a
-   solid bar on the left in the status color, no box outline. Every text color is 4.5:1 or better on its tint. */
+   solid bar on the left, using only the identity palette (red, black, grays, teal). Every text color is 4.5:1 or better on its background. */
 .chip { display: inline-flex; align-items: center; padding: 3px 9px 3px 7px; border-left: 4px solid var(--chip-bar);
   background: var(--chip-bg); color: var(--chip-ink); font-size: .75rem; font-weight: 700; line-height: 1.3;
   text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; vertical-align: middle; }
-.chip.waiting  { --chip-bar: var(--rutgers-red); --chip-bg: var(--white);       --chip-ink: var(--rutgers-red); }
-.chip.claimed  { --chip-bar: var(--yellow);      --chip-bg: var(--light-yellow); --chip-ink: var(--dark-gray); }
-.chip.resolved { --chip-bar: var(--teal);        --chip-bg: var(--light-teal);   --chip-ink: var(--teal); }
-.chip.left     { --chip-bar: var(--mid-gray);    --chip-bg: var(--light-gray);   --chip-ink: var(--dark-gray); }
+.chip.waiting  { --chip-bar: var(--rutgers-red); --chip-bg: var(--white);      --chip-ink: var(--rutgers-red); }
+.chip.claimed  { --chip-bar: var(--black);       --chip-bg: var(--white);      --chip-ink: var(--black); }
+.chip.resolved { --chip-bar: var(--teal);        --chip-bg: var(--white);      --chip-ink: var(--teal); }
+.chip.left     { --chip-bar: var(--mid-gray);    --chip-bg: var(--light-gray); --chip-ink: var(--dark-gray); }
 
 /* Icon-only button (e.g. Copy): red line icon, the accessible name is on aria-label.
    36px square with a 44px tap area; icon is 5.8:1 on white (non-text contrast needs 3:1). */
@@ -131,9 +131,9 @@ button.icon-btn:hover { background: var(--light-gray); border-color: var(--line)
 .menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 10; min-width: 220px; margin: 0; padding: 4px 0; list-style: none;
   background: var(--white); border: 1px solid var(--field); }
 .menu[hidden] { display: none; }
-.menu [role="menuitem"] { display: block; width: 100%; padding: 11px 16px; min-height: 44px; font-weight: 500; cursor: pointer; color: var(--ink); }
-.menu [role="menuitem"]:hover, .menu [role="menuitem"]:focus { background: var(--light-gray); color: var(--black); outline: none; }
-.menu [role="menuitem"]:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+.menu [role="menuitem"] { display: block; font-weight: 600; width: 100%; padding: 11px 16px; min-height: 44px; cursor: pointer; color: var(--ink); }
+/* Highlighted item: Rutgers Red text with a red bar on the left (5.05:1 on light gray), so focus is visible without the blue ring. */
+.menu [role="menuitem"]:hover, .menu [role="menuitem"]:focus { background: var(--light-gray); color: var(--scarlet); box-shadow: inset 4px 0 0 var(--scarlet); outline: none; }
 .late { color: var(--scarlet); font-weight: 700; }
 code { font-family: var(--mono); background: var(--light-gray); padding: 2px 7px; font-size: .9em; }
 
