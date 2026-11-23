@@ -403,7 +403,9 @@ function update() {
   $('more').classList.toggle('big', s.needDesc);
   $('descLabel').textContent = s.needDesc ? 'Short description' : 'Anything we should know';
   let tag = 'Optional'; let cls = '';
-  if (s.needDesc) { tag = s.desc ? 'Got it' : `Required · ${minDesc - s.len} more`; cls = s.desc ? '' : 'req'; }
+  // No running count and no "Got it": the field just says it's required. A too-short description
+  // is only flagged when they press Check in.
+  if (s.needDesc) { tag = 'Required'; cls = 'req'; }
   $('descReq').textContent = tag;
   $('descReq').className = cls;
   $('desc').placeholder = s.needDesc ? 'What do you need help with?' : '';
@@ -590,9 +592,9 @@ $('f').onsubmit = async (e) => {
 // "I'm all set" button that takes the person out of line (asked twice, so a stray tap can't).
 function showDone(id, help, signed) {
   $('stubHead').textContent = "You're checked in.";
-  $('stubNote').classList.toggle('hidden', !signed);
-  $('stubNote').textContent = signed === 'phone' ? 'Finish the DocuSign form on your phone before a consultant works on your device.'
-    : signed === 'signed' ? 'Permission form signed.' : '';
+  // Only the phone path needs a note (they still have to finish DocuSign). A signed form gets no message.
+  $('stubNote').classList.toggle('hidden', signed !== 'phone');
+  $('stubNote').textContent = signed === 'phone' ? 'Finish the DocuSign form on your phone before a consultant works on your device.' : '';
   $('stub').classList.toggle('wide', !!help);
   $('help').classList.toggle('hidden', !help);
   $('acts').classList.toggle('hidden', !help);

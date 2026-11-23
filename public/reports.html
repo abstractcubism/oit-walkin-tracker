@@ -6,13 +6,38 @@
 <title>Reports · OIT Walk-ins</title>
 <link rel="stylesheet" href="/app.css">
 <style>
+  /* Location tabs, same look as the queue */
+  .tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+  .tab { border: 0; border-radius: 0; background: none; padding: 12px 18px 11px; font-weight: 600; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+  .tab:hover { background: none; color: var(--black); }
+  .tab[aria-pressed="true"] { color: var(--black); border-bottom-color: var(--scarlet); }
+
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .bar { display: grid; grid-template-columns: 150px 1fr 40px; gap: 10px; align-items: center; margin: 6px 0; font-size: .9rem; }
   .bar .track { background: var(--light-gray); height: 10px; overflow: hidden; }
   .bars { list-style: none; margin: 0; padding: 0; }
   .bar .fill { background: var(--scarlet); height: 100%; border-radius: 0; }
   .bar span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
-  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } .bar { grid-template-columns: 100px 1fr 34px; } }
+
+  /* Walk-ins per day: one column per day in the date range */
+  .cols-chart { list-style: none; margin: 0; padding: 0; display: flex; align-items: stretch; gap: 6px; height: 220px; border-bottom: 2px solid var(--ink); }
+  .cols-chart li { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+  .cols-chart .n { font-family: var(--mono); font-size: .85rem; color: var(--ink); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+  .cols-chart .col { width: 100%; max-width: 56px; background: var(--scarlet); }
+  .cols-chart li.zero .col { background: var(--gray); }
+  .cols-chart li.weekend .col { background: var(--dark-gray); }
+  .cols-x { list-style: none; margin: 6px 0 0; padding: 0; display: flex; gap: 6px; }
+  .cols-x li { flex: 1 1 0; min-width: 0; text-align: center; font-size: .78rem; color: var(--muted); line-height: 1.25; white-space: nowrap; overflow: hidden; }
+  .cols-x li b { display: block; color: var(--ink); font-weight: 600; }
+  .cols-x.thin li:not(.lbl) { visibility: hidden; }
+  .chart-key { display: flex; gap: 18px; margin: 10px 0 0; font-size: .82rem; color: var(--muted); }
+  .chart-key span::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; background: var(--scarlet); vertical-align: -1px; }
+  .chart-key span.we::before { background: var(--dark-gray); }
+
+  @media (max-width: 760px) {
+    .cols { grid-template-columns: 1fr; } .bar { grid-template-columns: 100px 1fr 34px; }
+    .cols-chart, .cols-x { gap: 3px; } .cols-chart .n { font-size: .72rem; }
+  }
 </style>
 </head>
 <body>
@@ -26,12 +51,18 @@
       <a class="btn" id="csv" download>Download CSV</a>
     </form>
   </div>
+  <div class="tabs" id="tabs" role="group" aria-label="Show location"></div>
+  <h2 class="sr-only" id="scope" aria-live="polite"></h2>
   <div class="stats" id="stats"></div>
+  <div class="card">
+    <h2 class="h3">Walk-ins per day</h2>
+    <div id="perDay"></div>
+  </div>
   <div class="cols">
-    <div class="card"><h2 class="h3">By location</h2><div id="byLocation"></div></div>
-    <div class="card"><h2 class="h3">By issue</h2><div id="byIssue"></div></div>
+    <div class="card"><h2 class="h3">By day of the week</h2><div id="byWeekday"></div></div>
     <div class="card"><h2 class="h3">Busiest hours</h2><div id="byHour"></div></div>
-    <div class="card"><h2 class="h3">By day</h2><div id="byDay"></div></div>
+    <div class="card"><h2 class="h3">By issue</h2><div id="byIssue"></div></div>
+    <div class="card" id="byLocationCard"><h2 class="h3">By location</h2><div id="byLocation"></div></div>
     <div class="card"><h2 class="h3">Claimed by consultant</h2><div id="byConsultant"></div></div>
   </div>
 </main>
@@ -39,6 +70,18 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// Each computer remembers which location it last looked at. The first visit starts on the
+// queue's location tab, or the first location if the queue is on "All".
+const PREF = 'reportsLoc';
+let locs = [];
+let loc = (() => {
+  try {
+    const saved = localStorage.getItem(PREF);
+    if (saved !== null) return saved;
+    return String(JSON.parse(localStorage.getItem('queuePrefs') || '{}').loc || '');
+  } catch { return ''; }
+})();
 
 function bars(target, rows, extra) {
   const max = Math.max(1, ...rows.map((r) => r.n));
@@ -49,35 +92,71 @@ function bars(target, rows, extra) {
     el('span', {}, el('span', { class: 'sr-only' }, ': '), r.n))))] : [el('p', { class: 'muted' }, 'No data.')]));
 }
 
+// Vertical columns, one per day from "From" to "To", days with no walk-ins included.
+function perDay(counts, first, last) {
+  const days = [];
+  for (const d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) days.push(new Date(d));
+  if (!days.length) return $('perDay').replaceChildren(el('p', { class: 'muted' }, 'No data.'));
+  const max = Math.max(1, ...days.map((d) => counts[ymd(d)] || 0));
+  const every = Math.ceil(days.length / 14); // label at most about 14 days so the dates don't collide
+  const weekend = (d) => d.getDay() === 0 || d.getDay() === 6;
+  const full = (d) => d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+  $('perDay').replaceChildren(
+    el('ul', { class: 'cols-chart', role: 'list', style: days.length > 31 ? 'gap:1px' : '' }, days.map((d) => {
+      const n = counts[ymd(d)] || 0;
+      return el('li', { class: (n ? '' : 'zero ') + (weekend(d) ? 'weekend' : '') },
+        el('span', { class: 'sr-only' }, full(d) + ': '),
+        el('span', { class: 'n' }, n, el('span', { class: 'sr-only' }, n === 1 ? ' walk-in' : ' walk-ins')),
+        el('div', { class: 'col', 'aria-hidden': 'true', style: `height:${n ? Math.max(2, (n / max) * 100) : 1}%` }));
+    })),
+    el('ul', { class: 'cols-x' + (every > 1 ? ' thin' : ''), 'aria-hidden': 'true', style: days.length > 31 ? 'gap:1px' : '' }, days.map((d, i) =>
+      el('li', { class: i % every === 0 ? 'lbl' : '' },
+        el('b', {}, d.toLocaleDateString([], { weekday: 'short' })), `${d.getMonth() + 1}/${d.getDate()}`))),
+    el('div', { class: 'chart-key', 'aria-hidden': 'true' }, el('span', {}, 'Weekday'), el('span', { class: 'we' }, 'Weekend')));
+}
+
+function drawTabs() {
+  $('tabs').replaceChildren(...[...locs.map((l) => [String(l.id), l.name]), ['', 'All locations']].map(([id, name]) =>
+    el('button', { class: 'tab', type: 'button', 'aria-pressed': String(loc === id),
+      onclick: () => { loc = id; try { localStorage.setItem(PREF, id); } catch {} drawTabs(); load(); } }, name)));
+}
+
 async function load() {
   // Dates are local; the range covers whole days.
-  const from = new Date($('from').value + 'T00:00');
-  const to = new Date($('to').value + 'T00:00'); to.setDate(to.getDate() + 1);
-  const q = new URLSearchParams({ from: from.toISOString(), to: to.toISOString() });
+  const first = new Date($('from').value + 'T00:00');
+  const last = new Date($('to').value + 'T00:00');
+  const to = new Date(last); to.setDate(to.getDate() + 1);
+  const q = new URLSearchParams({ from: first.toISOString(), to: to.toISOString() });
+  if (loc) q.set('location', loc);
   $('csv').href = '/api/reports/export.csv?' + q;
+  const here = locs.find((l) => String(l.id) === loc);
+  $('scope').textContent = here ? here.name : 'All locations';
+  $('byLocationCard').classList.toggle('hidden', !!here); // one location: nothing to compare
   const r = await api('/api/reports?' + q);
   const t = r.totals;
   $('stats').replaceChildren(
     el('div', { class: 'stat red' }, el('b', {}, t.total || 0), 'walk-ins'),
-    el('div', { class: 'stat green' }, el('b', {}, t.resolved || 0), 'resolved'),
+    el('div', { class: 'stat gray' }, el('b', {}, t.resolved || 0), 'resolved'),
     el('div', { class: 'stat gray' }, el('b', {}, t.left_count || 0), 'left / no-show'),
-    el('div', { class: 'stat green' }, el('b', {}, t.self_solved || 0), 'fixed it themselves'),
-    el('div', { class: 'stat amber' }, el('b', {}, t.avg_wait_min != null ? t.avg_wait_min + ' min' : '–'), 'avg. wait to claim'),
-    el('div', { class: 'stat amber' }, el('b', {}, t.avg_handle_min != null ? t.avg_handle_min + ' min' : '–'), 'avg. time helping'));
+    el('div', { class: 'stat gray' }, el('b', {}, t.self_solved || 0), 'fixed it themselves'),
+    el('div', { class: 'stat gray' }, el('b', {}, t.avg_wait_min != null ? t.avg_wait_min + ' min' : '–'), 'avg. wait to claim'),
+    el('div', { class: 'stat gray' }, el('b', {}, t.avg_handle_min != null ? t.avg_handle_min + ' min' : '–'), 'avg. time helping'));
   bars('byLocation', r.byLocation, (x) => x.avg_wait_min != null ? `avg wait ${x.avg_wait_min} min` : null);
   bars('byIssue', r.byIssue, (x) => x.self_solved ? `${x.self_solved} fixed it themselves` : null);
   bars('byConsultant', r.byConsultant);
 
-  const hours = {}; const days = {};
+  const hours = {}; const weekdays = [0, 0, 0, 0, 0, 0, 0]; const days = {};
   r.times.forEach((iso) => {
     const d = new Date(iso);
     hours[d.getHours()] = (hours[d.getHours()] || 0) + 1;
-    const k = d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
-    days[k] = (days[k] || 0) + 1;
+    weekdays[(d.getDay() + 6) % 7]++; // Monday first
+    days[ymd(d)] = (days[ymd(d)] || 0) + 1;
   });
   const hourLabel = (h) => new Date(2000, 0, 1, h).toLocaleTimeString([], { hour: 'numeric' });
   bars('byHour', Object.keys(hours).map(Number).sort((a, b) => a - b).map((h) => ({ label: hourLabel(h), n: hours[h] })));
-  bars('byDay', Object.entries(days).map(([label, n]) => ({ label, n })));
+  // 2024-01-01 was a Monday, so day i of that week gives the weekday name in the browser's language.
+  bars('byWeekday', r.times.length ? weekdays.map((n, i) => ({ label: new Date(2024, 0, 1 + i).toLocaleDateString([], { weekday: 'long' }), n })) : []);
+  perDay(days, first, last);
 }
 
 (async () => {
@@ -87,6 +166,11 @@ async function load() {
   $('from').value = ymd(weekAgo);
   $('to').value = ymd(today);
   $('f').onsubmit = (e) => { e.preventDefault(); load(); };
+  try { locs = await api('/api/locations'); } catch { locs = []; }
+  if (loc && !locs.some((l) => String(l.id) === loc)) loc = locs.length ? String(locs[0].id) : '';
+  let firstVisit = true; try { firstVisit = localStorage.getItem(PREF) === null; } catch {}
+  if (!loc && firstVisit && locs.length) loc = String(locs[0].id);
+  drawTabs();
   load();
 })();
 </script>
