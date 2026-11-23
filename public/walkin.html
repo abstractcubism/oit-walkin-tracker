@@ -8,12 +8,18 @@
 <style>
   dl { display: grid; grid-template-columns: 140px 1fr; gap: 10px 16px; margin: 0; }
   dt { color: var(--muted); font-weight: 600; }
+  dl { align-items: baseline; }
   dd { margin: 0; }
+  dd.copyable { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+  dd.copyable > :first-child { overflow-wrap: anywhere; }
+  .page-h h1 { gap: 14px; }
+  .page-h h1 .id { font-family: var(--mono); letter-spacing: 0; }  /* ticket numbers and NetIDs: l/1 and O/0 stay distinct */
+  .with-copy { display: inline-flex; align-items: center; gap: 4px; }
   .netid { font-family: var(--mono); font-size: 1.8rem; font-weight: 600; }
   .back { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-weight: 600; margin-bottom: 14px; }
   .sn { display: inline-block; margin-top: 10px; font-weight: 600; }
-  .notice { background: var(--warn-tint); color: var(--warn); font-weight: 600; border-left: 4px solid var(--yellow); }
-  .ticket input { font-size: 1.2rem; width: 220px; text-transform: uppercase; }
+  .notice { background: var(--light-gray); color: var(--black); font-weight: 600; border-left: 4px solid var(--black); }
+  .ticket input { font-size: 1.2rem; width: 200px; text-transform: uppercase; }
   .form-ok { color: var(--ink); font-weight: 600; }
   .form-no { color: var(--scarlet); font-weight: 600; }
   .signed { margin-top: 16px; }
@@ -34,6 +40,7 @@
   <div id="app"></div>
 </main>
 <script src="/common.js"></script>
+<script src="/icons.js"></script>
 <script>
 const id = Number(location.pathname.split('/').pop());
 let me;
@@ -53,14 +60,64 @@ async function act(action, body = {}) {
   }
 }
 
+// Red copy icon. The name for screen readers is on aria-label; the tooltip says the same for mouse users.
+// After copying, the icon turns into a check for a moment, and the toast announces it (WCAG 4.1.3).
 function copyBtn(text, what) {
-  return el('button', { class: 'small', 'aria-label': 'Copy ' + what, onclick: async () => {
-    try { await navigator.clipboard.writeText(text); toast('Copied'); } catch { toast('Copy failed'); }
-  } }, 'Copy');
+  const b = el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Copy ' + what, title: 'Copy ' + what }, icon('copy'));
+  b.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(`Copied ${what}`);
+      b.replaceChildren(icon('check'));
+      setTimeout(() => b.replaceChildren(icon('copy')), 1500);
+    } catch { toast('Copy failed'); }
+  });
+  return b;
 }
 
+// "More actions" menu button, following the WAI-ARIA menu button pattern: Enter, Space or
+// Down Arrow opens it on the first item, Up Arrow on the last; arrows, Home and End move;
+// Escape or Tab closes it, and focus goes back to the button.
+function menuButton(label, items) {
+  const id = 'menu-' + Math.random().toString(36).slice(2, 8);
+  const btn = el('button', { type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-controls': id }, label, icon('chevron-down'));
+  const entries = items.map(([text, run, title]) => el('li', { role: 'menuitem', tabindex: '-1', title: title || null }, text));
+  const menu = el('ul', { class: 'menu', role: 'menu', id, 'aria-label': label, hidden: '' }, entries);
+  const wrap = el('div', { class: 'menu-wrap' }, btn, menu);
+  const isOpen = () => !menu.hidden;
+  const focusItem = (i) => entries[(i + entries.length) % entries.length].focus();
+  const open = (i) => { menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); focusItem(i); };
+  const close = (refocus) => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); if (refocus) btn.focus(); };
+  const choose = (i) => { close(true); items[i][1](); };
+  btn.addEventListener('click', () => (isOpen() ? close(true) : open(0)));
+  btn.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); open(0); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); open(entries.length - 1); }
+  });
+  entries.forEach((li, i) => {
+    li.addEventListener('click', () => choose(i));
+    li.addEventListener('mouseenter', () => li.focus());  // one highlighted item at a time, mouse or keyboard
+    li.addEventListener('keydown', (e) => {
+      const k = e.key;
+      if (k === 'ArrowDown') { e.preventDefault(); focusItem(i + 1); }
+      else if (k === 'ArrowUp') { e.preventDefault(); focusItem(i - 1); }
+      else if (k === 'Home') { e.preventDefault(); focusItem(0); }
+      else if (k === 'End') { e.preventDefault(); focusItem(entries.length - 1); }
+      else if (k === 'Escape') { e.preventDefault(); close(true); }
+      else if (k === 'Tab') close(false);
+      else if (k === 'Enter' || k === ' ') { e.preventDefault(); choose(i); }
+    });
+  });
+  // Clicking or tabbing anywhere outside closes it.
+  wrap.addEventListener('focusout', (e) => { if (isOpen() && !wrap.contains(e.relatedTarget)) close(false); });
+  return wrap;
+}
+
+// The heading names the walk-in by its ServiceNow ticket once one is attached, otherwise by who it is.
+const heading = (w) => w.ticket || w.netid || w.name || `Walk-in ${w.id}`;
+
 function render(w) {
-  document.title = `#${w.id} ${who(w)} · OIT Walk-ins`;
+  document.title = `${heading(w)} · OIT Walk-ins`;
   const open = w.status === 'waiting' || w.status === 'claimed';
   const mine = w.claimed_by === me.email;
 
@@ -73,27 +130,28 @@ function render(w) {
     return ok;
   };
 
+  // The main step (Claim, Resolve or Reopen) sits on the far right; everything else is in "More actions".
+  const more = [];
+  if (w.status === 'claimed') more.push([mine ? 'Release' : 'Release claim', () => act('unclaim')]);
+  if (open) more.push(['Left / no-show', () => { if (confirm('Mark this walk-in as left without being helped?')) act('left'); }]);
+  if (open) more.push(['Fixed it themselves', () => act('left', { reason: 'self_solved' }), 'They sorted it out on their own, e.g. with the self-help link']);
   const actions = [];
+  if (more.length) actions.push(menuButton('More actions', more));
   if (w.status === 'waiting') actions.push(el('button', { class: 'primary', onclick: () => act('claim') }, 'Claim'));
-  if (w.status === 'claimed') {
-    actions.push(el('button', { class: 'primary', onclick: async () => { if (await saveTicket()) act('resolve'); } }, 'Resolve'));
-    actions.push(el('button', { onclick: () => act('unclaim') }, mine ? 'Release' : 'Release claim'));
-  }
-  if (open) actions.push(el('button', { onclick: () => { if (confirm('Mark this walk-in as left without being helped?')) act('left'); } }, 'Left / no-show'));
-  if (open) actions.push(el('button', { title: 'They sorted it out on their own, e.g. with the self-help link', onclick: () => act('left', { reason: 'self_solved' }) }, 'Fixed it themselves'));
+  if (w.status === 'claimed') actions.push(el('button', { class: 'primary', onclick: async () => { if (await saveTicket()) act('resolve'); } }, 'Resolve'));
   if (!open) actions.push(el('button', { onclick: () => act('reopen') }, 'Reopen'));
 
   document.getElementById('app').replaceChildren(...[
     el('div', { class: 'page-h' },
-      el('h1', { class: 'row', id: 'wh', tabindex: '-1' }, `Walk-in #${w.id}`, chip(w.status)),
+      el('h1', { class: 'row', id: 'wh', tabindex: '-1' }, w.ticket || w.netid ? el('span', { class: 'id' }, heading(w)) : heading(w), chip(w.status)),
       el('div', { class: 'row' }, actions)),
     w.status === 'claimed' && !mine ? el('p', { class: 'card notice', role: 'note' }, `Claimed by ${w.claimed_by_name || w.claimed_by}.`) : null,
     el('div', { class: 'grid' },
       el('div', { class: 'card' },
         el('dl', {},
-          w.netid ? [el('dt', {}, 'NetID'), el('dd', {}, el('span', { class: 'netid' }, w.netid), ' ', copyBtn(w.netid, 'NetID'))] : null,
+          w.netid ? [el('dt', {}, 'NetID'), el('dd', { class: 'copyable' }, el('span', { class: 'netid' }, w.netid), copyBtn(w.netid, 'NetID'))] : null,
           w.name ? [el('dt', {}, 'Name'), el('dd', {}, w.name)] : null,
-          w.email ? [el('dt', {}, 'Email'), el('dd', {}, el('a', { href: 'mailto:' + w.email }, w.email), ' ', copyBtn(w.email, 'email'))] : null,
+          w.email ? [el('dt', {}, 'Email'), el('dd', { class: 'copyable' }, el('a', { href: 'mailto:' + w.email }, w.email), copyBtn(w.email, 'email'))] : null,
           w.purged_at ? [el('dt', {}, 'Details'), el('dd', { class: 'muted' }, 'Personal details were erased by the retention rule.')] : null,
           el('dt', {}, 'Issue'), el('dd', {}, w.issue_type || el('span', { class: 'muted' }, 'Not picked')),
           el('dt', {}, 'Description'), el('dd', { style: 'white-space:pre-wrap' }, w.description || el('span', { class: 'muted' }, 'None')),
@@ -105,7 +163,7 @@ function render(w) {
       el('div', { class: 'card' },
         el('form', { class: 'ticket', onsubmit: (e) => { e.preventDefault(); saveTicket(); } },
           el('label', { for: 'ticket' }, 'ServiceNow ticket'),
-          el('div', { class: 'row' }, ticket, el('button', { type: 'submit' }, 'Save ticket'), w.ticket ? copyBtn(w.ticket, 'ticket number') : null),
+          el('div', { class: 'row' }, el('span', { class: 'with-copy' }, ticket, w.ticket ? copyBtn(w.ticket, 'ticket number') : null), el('button', { type: 'submit' }, 'Save ticket')),
           w.ticket ? el('a', { class: 'sn', href: servicenowLink(me.servicenowUrl, w.ticket), target: '_blank', rel: 'noopener' }, `Open ${w.ticket} in ServiceNow`, el('span', { 'aria-hidden': 'true' }, ' ↗'), el('span', { class: 'sr-only' }, ' (opens in a new tab)')) : null),
         el('div', { style: 'margin-top:16px' },
           el('label', { for: 'notes' }, 'Notes'), notes,
