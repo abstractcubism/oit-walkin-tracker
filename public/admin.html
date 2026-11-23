@@ -58,8 +58,12 @@ async function post(path, body) {
 
 async function load() {
   const d = await api('/api/admin');
+  const sh = d.sheets;
+  const sheetText = sh.mode === 'off' ? 'Google Sheet copy is off.'
+    : sh.lastError ? `Google Sheet copy is failing (${sh.lastError}); ${sh.queued} walk-ins are waiting and will be sent when it reconnects.`
+    : `Google Sheet copy is on (${sh.target}, tab "${sh.tab}")${sh.queued ? `, ${sh.queued} waiting to send` : ', up to date'}.`;
   const slackText = { bot: 'on, with the Claim button', webhook: 'on (post only)', off: 'off' }[d.slack];
-  $('summary').textContent = `Personal details are erased after ${d.retentionDays} days. Slack is ${slackText}.`;
+  $('summary').textContent = `Personal details are erased after ${d.retentionDays} days. Slack is ${slackText}. ${sheetText}`;
   document.querySelectorAll('.slackcol').forEach((th) => { th.hidden = d.slack !== 'bot'; });
 
   $('users').replaceChildren(...d.users.map((u) => {
