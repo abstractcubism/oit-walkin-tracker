@@ -9,43 +9,49 @@
   body { min-height: 100vh; }
   .wrap { max-width: 980px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 40px) 48px; }
   .top { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 14px; border-bottom: 2px solid var(--ink); margin-bottom: 26px; }
-  .word { font-weight: 700; font-size: 1.05rem; }
-  .word span { color: var(--scarlet); }
-  .me { color: var(--muted); font-size: .9rem; }
-  .me button { border: 0; background: none; padding: 0 0 0 10px; color: var(--muted); text-decoration: underline; font-weight: 500; }
+  .top { align-items: center; }
+  .me { color: var(--muted); font-size: .9rem; display: flex; align-items: center; gap: 4px; }
+  .me button { border: 0; background: none; padding: 0 0 0 10px; color: var(--ink); text-decoration: underline; font-weight: 500; }
 
   .big { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 28px 30px; border-radius: 4px; border: 0;
     font-size: 1.5rem; font-weight: 600; text-decoration: none; }
   .big .icon { width: 30px; height: 30px; }
   .queue { background: var(--ink); color: #fff; }
-  .queue:hover { background: #000; }
-  .queue small { display: block; font-size: .9rem; font-weight: 400; opacity: .7; margin-top: 4px; }
+  .queue:hover { background: var(--black); color: var(--white); }
+  .queue small { display: block; font-size: .9rem; font-weight: 400; margin-top: 4px; }
 
   .linked { margin-top: 18px; border: 1px solid var(--line); background: #fff; padding: 18px 22px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .linked p { margin: 0 auto 0 0; font-size: 1.05rem; }
 
   .mode { display: inline-flex; margin-top: 12px; border: 2px solid var(--ink); border-radius: 4px; }
-  .mode button { border: 0; border-radius: 0; background: #fff; padding: 10px 18px; font-size: 1rem; }
+  .mode button { border: 0; border-radius: 0; background: var(--white); padding: 10px 18px; font-size: 1rem; }
   .mode button + button { border-left: 2px solid var(--ink); }
-  .mode button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .mode button[aria-pressed="true"] { background: var(--ink); color: var(--white); }
+  .mode button[aria-pressed="true"]::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
   .label { font-size: .8rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin: 38px 0 4px; }
   /* One column per campus, so every location fits on the iPad without scrolling. */
   #campuses { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0 14px; }
   .campus { margin-top: 18px; }
   .campus h2 { font-size: 1rem; font-weight: 600; color: var(--ink); margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
   .grid { display: grid; gap: 12px; }
-  .loc { min-height: 110px; border: 2px solid var(--ink); background: #fff; border-radius: 4px; font-size: 1.35rem; font-weight: 600;
+  .loc { min-height: 110px; border: 2px solid var(--ink); background: var(--white); border-radius: 4px; font-size: 1.35rem; font-weight: 600;
     display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; padding: 18px 20px; text-align: left; }
   .loc .icon { width: 22px; height: 22px; color: var(--muted); align-self: flex-end; }
-  .loc:hover, .loc:active { background: var(--ink); color: #fff; border-color: var(--ink); }
-  .loc:hover .icon, .loc:active .icon { color: #fff; }
-  .loc.current { border-color: var(--scarlet); }
+  .loc:hover, .loc:active { background: var(--ink); color: var(--white); border-color: var(--ink); }
+  .loc:hover .icon, .loc:active .icon { color: var(--white); }
+  /* The location this device already shows: a red border plus the word "Current", not color alone. */
+  .loc.current { border-color: var(--scarlet); border-width: 3px; }
+  .loc .now { display: none; font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--scarlet); }
+  .loc.current .now { display: block; }
+  .loc:hover .now { color: var(--white); }
+  .loc .bottom { display: flex; align-items: flex-end; justify-content: space-between; width: 100%; }
+  .loc .bottom .icon { margin-left: auto; }
 </style>
 </head>
 <body>
-<div class="wrap">
+<main class="wrap" id="main">
   <div class="top">
-    <div class="word"><span>Rutgers</span> OIT</div>
+    <div id="brand"></div>
     <div class="me"><span id="who"></span><button id="out">Sign out</button></div>
   </div>
 
@@ -62,20 +68,21 @@
     <button id="unlinkTv">Unlink this screen</button>
   </div>
 
-  <div class="label">Or set up this device</div>
+  <h1 class="label" id="setupLabel">Or set up this device</h1>
   <div class="mode" role="group" aria-label="Set up as">
     <button id="modeKiosk" aria-pressed="true">iPad check-in</button>
     <button id="modeTv" aria-pressed="false">TV queue screen</button>
   </div>
   <div id="campuses"></div>
   <p class="error" id="err" role="alert"></p>
-</div>
+</main>
 <script src="/common.js"></script>
 <script src="/icons.js"></script>
 <script>
 (async () => {
   const $ = (id) => document.getElementById(id);
   $('qIcon').replaceWith(icon('arrow-right'));
+  $('brand').replaceWith(brandMark());
   const me = await api('/api/me');
   $('who').textContent = me.name || me.email;
   $('out').onclick = async () => { await api('/api/auth/logout', {}); location.href = '/login'; };
@@ -124,7 +131,7 @@
           location.href = mode === 'tv' ? '/tv' : '/kiosk';
         } catch (e) { $('err').textContent = e.message; }
       },
-    }, l.name, icon('arrow-right')))))));
+    }, l.name, el('span', { class: 'bottom' }, el('span', { class: 'now' }, 'Current'), icon('arrow-right'))))))));
   setMode(mode);
 })();
 </script>

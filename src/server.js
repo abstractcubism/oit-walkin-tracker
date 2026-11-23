@@ -2,9 +2,11 @@ const path = require('path');
 const express = require('express');
 const QRCode = require('qrcode');
 const config = require('./config');
-const { db, now, tx, parseOptions, getSetting, setSetting } = require('./db');
+const { db, now, parseOptions, getSetting, setSetting } = require('./db');
 const auth = require('./auth');
 const slack = require('./slack');
+const walkins = require('./walkins');
+const sheets = require('./sheets');
 const { startRetention } = require('./retention');
 
 const app = express();
@@ -31,7 +33,7 @@ app.use(auth.loadIdentity);
 const pub = path.join(__dirname, '..', 'public');
 const page = (file) => (req, res) => res.sendFile(path.join(pub, file));
 const bad = (res, msg, code = 400) => res.status(code).json({ error: msg });
-const clean = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+const { clean } = walkins;
 
 // ---------- Pages ----------
 app.get('/', (req, res) => res.redirect(req.user ? '/setup' : req.device ? '/kiosk' : req.display ? '/tv' : '/setup'));
@@ -237,6 +239,7 @@ app.post('/api/kiosk/walkins/:id/self-solved', auth.requireDevice, (req, res) =>
                         WHERE id=? AND device_id=? AND status='waiting' AND created_at >= ?`)
     .run(now(), Number(req.params.id), req.device.id, since);
   if (r.changes === 0) return bad(res, 'A consultant already has you. Let them know you\'re all set.', 409);
+  slack.changed(req.params.id);
   res.json({ ok: true });
 });
 
@@ -324,10 +327,7 @@ app.get('/api/tv/queue', auth.requireDisplay, (req, res) => {
 });
 
 // ---------- Dashboard ----------
-const WALKIN_SELECT = `SELECT w.*, l.name AS location, cu.name AS claimed_by_name, xu.name AS closed_by_name, bu.name AS consent_by_name
-  FROM walkins w JOIN locations l ON l.id = w.location_id
-  LEFT JOIN users cu ON cu.email = w.claimed_by LEFT JOIN users xu ON xu.email = w.closed_by
-  LEFT JOIN users bu ON bu.email = w.consent_by`;
+const WALKIN_SELECT = walkins.SELECT;
 // The queue refreshes every few seconds, so leave the signed form's text and signature image
 // out of the list. The walk-in page loads them.
 const listRow = ({ consent_text, consent_sig, ...w }) => w;
@@ -353,70 +353,12 @@ app.get('/api/walkins/:id', auth.requireUser, (req, res) => {
   res.json(w);
 });
 
-const TICKET_RE = /^[A-Z]{3,6}\d{5,10}$/;
-
-// One endpoint for every state change, so the rules live in one place.
+// One endpoint for every state change. The rules live in walkins.js, shared with Slack.
 app.post('/api/walkins/:id/:action', auth.requireUser, (req, res) => {
-  const id = Number(req.params.id);
-  const me = req.user.email;
-  const result = tx(() => {
-    const w = db.prepare('SELECT * FROM walkins WHERE id = ?').get(id);
-    if (!w) return { code: 404, error: 'Walk-in not found.' };
-    switch (req.params.action) {
-      case 'claim': {
-        // Only succeeds if nobody else has it, so two consultants can't both claim.
-        const r = db.prepare("UPDATE walkins SET status='claimed', claimed_by=?, claimed_at=? WHERE id=? AND status='waiting'").run(me, now(), id);
-        if (r.changes === 0) {
-          const who = w.claimed_by ? (db.prepare('SELECT name FROM users WHERE email=?').get(w.claimed_by)?.name || w.claimed_by) : null;
-          return { code: 409, error: who && w.status === 'claimed' ? `Already claimed by ${who}.` : 'This walk-in is no longer waiting.' };
-        }
-        return {};
-      }
-      case 'unclaim':
-        if (w.status !== 'claimed') return { code: 409, error: 'This walk-in is not claimed.' };
-        db.prepare("UPDATE walkins SET status='waiting', claimed_by=NULL, claimed_at=NULL WHERE id=?").run(id);
-        return {};
-      case 'update': {
-        const fields = {};
-        if ('ticket' in req.body) {
-          const t = clean(req.body.ticket, 20).toUpperCase();
-          if (t && !TICKET_RE.test(t)) return { code: 400, error: 'Ticket numbers look like INC0012345 or RITM0012345.' };
-          fields.ticket = t || null;
-        }
-        if ('notes' in req.body) fields.notes = clean(req.body.notes, 2000) || null;
-        const keys = Object.keys(fields);
-        if (keys.length) db.prepare(`UPDATE walkins SET ${keys.map((k) => `${k}=?`).join(', ')} WHERE id=?`).run(...keys.map((k) => fields[k]), id);
-        return {};
-      }
-      case 'resolve':
-        if (!['waiting', 'claimed'].includes(w.status)) return { code: 409, error: 'This walk-in is already closed.' };
-        if (config.requireTicket && !w.ticket) return { code: 400, error: 'Add the ServiceNow ticket number first.' };
-        db.prepare(`UPDATE walkins SET status='resolved', closed_at=?, closed_by=?,
-                    claimed_by=COALESCE(claimed_by, ?), claimed_at=COALESCE(claimed_at, ?) WHERE id=?`).run(now(), me, me, now(), id);
-        return {};
-      case 'left': {
-        // Plain "left / no-show", or "fixed it themselves" (e.g. with the self-help QR code).
-        if (!['waiting', 'claimed'].includes(w.status)) return { code: 409, error: 'This walk-in is already closed.' };
-        const reason = req.body.reason === 'self_solved' ? 'self_solved' : null;
-        db.prepare("UPDATE walkins SET status='left', close_reason=?, closed_at=?, closed_by=? WHERE id=?").run(reason, now(), me, id);
-        return {};
-      }
-      case 'consent':
-        // A consultant checked the form (e.g. the confirmation on the person's phone) and marks it signed.
-        if (['signed', 'confirmed'].includes(w.consent)) return { code: 409, error: 'The permission form is already signed.' };
-        db.prepare("UPDATE walkins SET consent='confirmed', consent_at=?, consent_by=? WHERE id=?").run(now(), me, id);
-        return {};
-      case 'reopen':
-        if (!['resolved', 'left'].includes(w.status)) return { code: 409, error: 'This walk-in is still open.' };
-        db.prepare(`UPDATE walkins SET status=CASE WHEN claimed_by IS NULL THEN 'waiting' ELSE 'claimed' END,
-                    closed_at=NULL, closed_by=NULL, close_reason=NULL WHERE id=?`).run(id);
-        return {};
-      default:
-        return { code: 404, error: 'Unknown action.' };
-    }
-  });
+  const result = walkins.act(req.params.id, req.params.action, req.user.email, req.body);
   if (result.error) return bad(res, result.error, result.code);
-  res.json(db.prepare(`${WALKIN_SELECT} WHERE w.id = ?`).get(id));
+  slack.changed(req.params.id);
+  res.json(walkins.get(req.params.id));
 });
 
 // ---------- Reports ----------
@@ -468,14 +410,15 @@ app.get('/api/reports/export.csv', auth.requireUser, (req, res) => {
 // ---------- Admin ----------
 app.get('/api/admin', auth.requireAdmin, (req, res) => {
   res.json({
-    users: db.prepare('SELECT email, name, role, active FROM users ORDER BY active DESC, role, email').all(),
+    users: db.prepare('SELECT email, name, role, active, slack_user_id FROM users ORDER BY active DESC, role, email').all(),
     locations: db.prepare('SELECT * FROM locations ORDER BY active DESC, campus, name').all(),
     issues: db.prepare('SELECT * FROM issue_types ORDER BY active DESC, sort, label').all(),
     devices: db.prepare(`SELECT d.id, d.kind, l.name AS location, d.created_by, d.created_at, d.last_seen FROM devices d
                          JOIN locations l ON l.id = d.location_id WHERE d.revoked_at IS NULL ORDER BY d.created_at DESC`).all(),
     adminEmails: config.adminEmails,
     retentionDays: config.retentionDays,
-    slack: slack.enabled(),
+    slack: slack.mode(),
+    sheets: sheets.status(),
     consent: { ...consentSettings(), max: CONSENT_MAX, defaultText: CONSENT_DEFAULT_TEXT },
   });
 });
@@ -505,6 +448,18 @@ app.post('/api/admin/users', auth.requireAdmin, (req, res) => {
               ON CONFLICT(email) DO UPDATE SET role=excluded.role, active=excluded.active, name=COALESCE(excluded.name, users.name)`)
     .run(email, clean(req.body.name, 100) || null, role, active);
   if (!active) db.prepare('DELETE FROM sessions WHERE email = ?').run(email);
+  res.json({ ok: true });
+});
+
+// Link a consultant to their Slack member ID (for the Slack Claim button). Most people are
+// linked automatically by email the first time they press Claim; this is for the rest.
+app.post('/api/admin/users/slack', auth.requireAdmin, (req, res) => {
+  const email = clean(req.body.email, 200).toLowerCase();
+  const id = clean(req.body.slack_user_id, 20).toUpperCase();
+  if (id && !/^[UW][A-Z0-9]{6,19}$/.test(id)) return bad(res, 'Slack member IDs look like U012ABCDEF. In Slack: profile, ⋮, Copy member ID.');
+  if (id) db.prepare('UPDATE users SET slack_user_id = NULL WHERE slack_user_id = ?').run(id);
+  const r = db.prepare('UPDATE users SET slack_user_id = ? WHERE email = ?').run(id || null, email);
+  if (!r.changes) return bad(res, 'No consultant with that email.', 404);
   res.json({ ok: true });
 });
 
@@ -563,6 +518,7 @@ app.use((err, req, res, next) => {
 if (require.main === module) {
   app.listen(config.port, () => console.log(`Walk-in tracker on ${config.baseUrl} (port ${config.port})`));
   slack.start();
+  sheets.start();
   startRetention();
 }
 

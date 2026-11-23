@@ -6,23 +6,29 @@
 <title>Queue · OIT Walk-ins</title>
 <link rel="stylesheet" href="/app.css">
 <style>
-  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); margin-bottom: 22px; overflow-x: auto; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
   .tab { border: 0; border-radius: 0; background: none; padding: 12px 18px 11px; font-weight: 600; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -1px; white-space: nowrap; gap: 8px; }
-  .tab:hover { background: none; color: var(--ink); }
-  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--scarlet); }
-  .tab .n { font-family: var(--mono); font-size: .85rem; min-width: 22px; padding: 1px 6px; border-radius: 3px; background: var(--bg); color: var(--muted); }
-  .tab .n.hot { background: var(--scarlet); color: #fff; }
-  .sound { margin-left: auto; align-self: center; font-weight: 500; font-size: .85rem; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; padding-left: 16px; margin-bottom: 0; }
+  .tab:hover { background: none; color: var(--black); }
+  .tab[aria-pressed="true"] { color: var(--black); border-bottom-color: var(--scarlet); }
+  .tab .n { font-family: var(--mono); font-size: .85rem; min-width: 22px; padding: 1px 6px; background: var(--light-gray); color: var(--ink); }
+  .tab .n.hot { background: var(--scarlet); color: var(--white); }
+  /* Sound toggle sits at the right end of the "Waiting" line, outside the location tabs. */
+  .qhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+  .qhead h2.sec { margin: 0; }
+  .sound { font-weight: 500; font-size: .9rem; color: var(--ink); display: inline-flex; gap: 8px; align-items: center; margin: 0; min-height: 44px; cursor: pointer; }
 
   h2.sec { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; display: flex; gap: 10px; align-items: baseline; }
   h2.sec b { font-family: var(--mono); color: var(--ink); font-size: 1rem; letter-spacing: 0; }
 
-  .q { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); }
+  .q { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); }
   .item { display: grid; grid-template-columns: 76px 150px 1fr auto; gap: 18px; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); }
   .item:last-child { border-bottom: 0; }
   .wait { font-family: var(--mono); font-size: 1.25rem; font-weight: 600; }
   .wait small { display: block; font-family: "IBM Plex Sans", sans-serif; font-size: .75rem; color: var(--muted); font-weight: 500; }
   .item.late .wait { color: var(--scarlet); }
+  /* Long waits get a word, not just red numbers (WCAG 1.4.1). */
+  .flag { display: inline-block; margin-top: 3px; font-family: "IBM Plex Sans", sans-serif; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--white); background: var(--scarlet); padding: 1px 5px; }
   .who { font-family: var(--mono); font-weight: 600; font-size: 1.05rem; overflow-wrap: anywhere; }
   .who small { display: block; font-family: "IBM Plex Sans", sans-serif; font-weight: 400; font-size: .8rem; color: var(--muted); }
   .issue small { display: block; color: var(--muted); font-size: .85rem; margin-top: 2px; }
@@ -39,7 +45,7 @@
   summary h2.sec::after { content: "Show"; margin-left: auto; text-transform: none; letter-spacing: 0; color: var(--scarlet); font-weight: 600; }
   details[open] summary h2.sec::after { content: "Hide"; }
   .done-row { display: grid; grid-template-columns: 76px 150px 1fr auto; gap: 18px; padding: 10px 18px; border-bottom: 1px solid var(--line); color: var(--muted); align-items: center; text-decoration: none; }
-  .done-row:hover { background: #faf8f5; }
+  .done-row:hover { background: var(--light-gray); }
   .done-row:last-child { border-bottom: 0; }
   .done-row .who { color: var(--ink); font-size: .95rem; }
 
@@ -51,8 +57,12 @@
 </head>
 <body>
 <main>
-  <div class="tabs" id="tabs" role="tablist" aria-label="Location"></div>
-  <h2 class="sec">Waiting <b id="nOpen">0</b></h2>
+  <h1 class="sr-only">Walk-in queue</h1>
+  <div class="tabs" id="tabs" role="group" aria-label="Show location"></div>
+  <div class="qhead">
+    <h2 class="sec">Waiting <b id="nOpen">0</b></h2>
+    <label class="sound"><input type="checkbox" id="sound"> Sound for new walk-ins</label>
+  </div>
   <div class="q" id="open"></div>
   <details id="doneBox">
     <summary><h2 class="sec">Finished today <b id="nDone">0</b></h2></summary>
@@ -94,16 +104,20 @@ const short = (s, n) => (s.length > n ? s.slice(0, n) + '…' : s);
 
 function openItem(w) {
   const mins = minutesSince(w.created_at);
-  return el('div', { class: 'item' + (w.status === 'waiting' && mins >= LATE_MIN ? ' late' : '') },
-    el('div', { class: 'wait' }, mins < 1 ? 'now' : mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h${mins % 60}`, el('small', {}, fmtTime(w.created_at))),
+  const late = w.status === 'waiting' && mins >= LATE_MIN;
+  const waited = mins < 1 ? 'now' : mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h${mins % 60}`;
+  return el('div', { class: 'item' + (late ? ' late' : ''), 'data-key': w.id + ':' + w.status },
+    el('div', { class: 'wait' }, el('span', { 'aria-hidden': 'true' }, waited),
+      el('span', { class: 'sr-only' }, mins < 1 ? 'Just arrived' : `Waiting ${ago(w.created_at)}`),
+      el('small', {}, fmtTime(w.created_at)), late ? el('span', { class: 'flag' }, 'Long wait') : null),
     el('div', { class: 'who' }, who(w), !w.netid && w.email ? el('small', {}, w.email) : null, formTag(w)),
     el('div', { class: 'issue' }, allTab() ? el('div', { class: 'loc' }, w.location) : null,
       w.issue_type || 'Something else', w.description ? el('small', {}, short(w.description, 110)) : null),
     el('div', { class: 'acts' },
       w.status === 'waiting'
-        ? el('button', { class: 'primary', onclick: () => act(w, 'claim') }, 'Claim')
+        ? el('button', { class: 'primary', 'data-focus': 'claim' + w.id, 'aria-label': `Claim ${who(w)}`, onclick: () => act(w, 'claim') }, 'Claim')
         : el('span', { class: 'claimed-by' }, w.claimed_by === me.email ? 'Yours' : 'Claimed by ' + (w.claimed_by_name || w.claimed_by).split(/[ @]/)[0]),
-      el('a', { class: 'btn', href: `/w/${w.id}` }, 'Open')));
+      el('a', { class: 'btn', 'data-focus': 'open' + w.id, 'aria-label': `Open ${who(w)}`, href: `/w/${w.id}` }, 'Open')));
 }
 
 // Permission form status, so nobody touches a device before it's signed.
@@ -114,14 +128,27 @@ function formTag(w) {
 }
 
 function doneItem(w) {
-  return el('a', { class: 'done-row', href: `/w/${w.id}` },
+  return el('a', { class: 'done-row', 'data-focus': 'done' + w.id, href: `/w/${w.id}` },
     el('div', {}, fmtTime(w.created_at)),
     el('div', { class: 'who' }, who(w)),
     el('div', { class: 'issue' }, allTab() ? `${w.location} · ` : '', w.issue_type || 'Something else'),
     el('div', {}, w.status === 'left' ? closedLabel(w) : w.ticket ? el('code', {}, w.ticket) : 'Resolved'));
 }
 
+// The queue refreshes every 5 seconds. Redraw only when something changed, and put keyboard
+// focus back on the same control afterwards, so keyboard and screen reader users don't lose
+// their place (WCAG 2.4.3).
+let lastSig = '';
 function render() {
+  const sig = JSON.stringify([prefs.loc, all, Math.floor(Date.now() / 60000)]);
+  if (sig === lastSig) return;
+  lastSig = sig;
+  const focusKey = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.focus : null;
+  draw();
+  if (focusKey) { const f = document.querySelector(`[data-focus="${focusKey}"]`); if (f) f.focus(); }
+}
+
+function draw() {
   const here = prefs.loc ? all.filter((w) => String(w.location_id) === String(prefs.loc)) : all;
   const open = here.filter((w) => w.status === 'waiting' || w.status === 'claimed')
     .sort((a, b) => (a.status === 'waiting' ? 0 : 1) - (b.status === 'waiting' ? 0 : 1) || a.created_at.localeCompare(b.created_at));
@@ -131,10 +158,10 @@ function render() {
   $('tabs').replaceChildren(
     ...[...locs.map((l) => [l.id, l.name]), ['', 'All locations']].map(([id, name]) => {
       const n = waitingAt(id);
-      return el('button', { class: 'tab', role: 'tab', 'aria-selected': String(String(prefs.loc || '') === String(id)),
-        onclick: () => { prefs.loc = id; savePrefs(); seen = null; render(); } }, name, el('span', { class: 'n' + (n ? ' hot' : '') }, n));
-    }),
-    el('label', { class: 'sound' }, el('input', { type: 'checkbox', checked: !!prefs.sound, onchange: (e) => { prefs.sound = e.target.checked; savePrefs(); } }), 'Sound'));
+      return el('button', { class: 'tab', 'data-focus': 'tab' + id, 'aria-pressed': String(String(prefs.loc || '') === String(id)),
+        onclick: () => { prefs.loc = id; savePrefs(); seen = null; lastSig = ''; render(); } }, name,
+        el('span', { class: 'n' + (n ? ' hot' : '') }, n, el('span', { class: 'sr-only' }, ' waiting')));
+    }));
 
   const waiting = open.filter((w) => w.status === 'waiting');
   $('nOpen').textContent = waiting.length;
@@ -143,7 +170,11 @@ function render() {
   $('done').replaceChildren(...(done.length ? done.map(doneItem) : [el('div', { class: 'empty' }, 'Nothing finished yet today.')]));
   document.title = (waiting.length ? `(${waiting.length}) ` : '') + 'Queue · OIT Walk-ins';
 
-  if (seen && prefs.sound && waiting.some((w) => !seen.has(w.id))) beep();
+  const fresh = seen ? waiting.filter((w) => !seen.has(w.id)) : [];
+  if (fresh.length) {
+    announce(fresh.length === 1 ? `New walk-in: ${who(fresh[0])}, ${fresh[0].issue_type || 'Something else'}` : `${fresh.length} new walk-ins`);
+    if (prefs.sound) beep();
+  }
   seen = new Set(here.map((w) => w.id));
 }
 
@@ -155,6 +186,8 @@ async function refresh() {
 
 (async () => {
   me = await staffNav('/dashboard');
+  $('sound').checked = !!prefs.sound;
+  $('sound').onchange = (e) => { prefs.sound = e.target.checked; savePrefs(); };
   locs = await api('/api/locations');
   if (prefs.loc && !locs.some((l) => String(l.id) === String(prefs.loc))) prefs.loc = '';
   await refresh();
