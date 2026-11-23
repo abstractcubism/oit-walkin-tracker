@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#f4f1ec">
 <title>Check in · OIT</title>
@@ -10,19 +10,28 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* Rutgers Visual Identity System colors (User Guide p. 22) on cream paper: black ink, Rutgers Red.
+     Every text color here is 4.5:1 or better on its background (WCAG 1.4.3). */
   :root {
-    --paper: #f4f1ec;
-    --ink: #141414;
-    --soft: #6b665f;
-    --rule: #d6d0c6;
+    --paper: #f4f1ec;  /* cream: allowed as a background (User Guide p. 32); all text still 4.5:1+ */
+    --shade: #efefef;  /* Light Gray */
+    --ink: #000000;
+    --soft: #666666;   /* Mid Gray: 5.7:1 on white */
+    --rule: #d8d8d8;   /* Gray: decorative rules only */
+    --field: #666666;  /* borders of things you type in: 3:1 or better (WCAG 1.4.11) */
     --scarlet: #cc0033;
+    --focus: #007fac;  /* Blue */
     --sans: "IBM Plex Sans", -apple-system, "Helvetica Neue", Arial, sans-serif;
     --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   }
   * { box-sizing: border-box; margin: 0; }
   html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
   body { background: var(--paper); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased;
-    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  /* Visible keyboard focus (WCAG 2.4.7), for people using a keyboard or Switch Control with the iPad. */
+  :focus { outline: none; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
   input, textarea { font: inherit; color: inherit; -webkit-user-select: text; user-select: text; }
   .hidden { display: none !important; }
@@ -32,13 +41,16 @@
   .screen { height: 100vh; height: 100dvh; display: grid; grid-template-rows: auto 1fr;
     padding: max(20px, env(safe-area-inset-top)) clamp(24px, 4vw, 52px) max(24px, env(safe-area-inset-bottom)); }
 
-  header { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 14px; border-bottom: 2px solid var(--ink); }
-  .word { font-weight: 700; font-size: 1.05rem; letter-spacing: .01em; }
-  .word span { color: var(--scarlet); }
+  /* The Rutgers R (official file only) at the top, 36px tall with a quarter of its height clear on
+     every side (User Guide p. 8). Plain text "Rutgers University" until the file is installed. */
+  header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 2px solid var(--ink); }
+  .brandmark { display: inline-flex; align-items: center; padding: 9px; margin: -9px 0 -9px -9px; }
+  .brandmark img { height: 36px; width: auto; display: block; -webkit-user-drag: none; pointer-events: none; }
+  .brand-text { font-weight: 700; font-size: 1.05rem; letter-spacing: .01em; line-height: 36px; }
   .clock { font-family: var(--mono); font-size: 1.05rem; color: var(--soft); }
-  /* Hidden staff exit: press and hold the wordmark. A faint bar fills while holding. */
-  .word { position: relative; padding: 10px 14px 10px 0; -webkit-touch-callout: none; }
-  .word::after { content: ""; position: absolute; left: 0; bottom: 2px; height: 2px; width: 0; background: var(--scarlet); }
+  /* Hidden staff exit: press and hold the logo. A thin bar fills while holding. */
+  .word { position: relative; -webkit-touch-callout: none; }
+  .word::after { content: ""; position: absolute; left: 0; bottom: -4px; height: 2px; width: 0; background: var(--scarlet); }
   .word.holding::after { width: 100%; transition: width 3s linear; }
 
   main { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); min-height: 0; }
@@ -47,28 +59,32 @@
 
   .label { font-size: .82rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--soft); display: flex; justify-content: space-between; align-items: baseline; }
   .label .req { color: var(--scarlet); letter-spacing: .04em; }
-  .label .soft { color: #a39c91; letter-spacing: .04em; text-transform: none; font-weight: 500; }
+  .label .soft { color: var(--soft); letter-spacing: .04em; text-transform: none; font-weight: 500; }
+  .hint { font-size: 1rem; color: var(--soft); margin-top: 4px; }
 
   /* NetID: typed straight onto the page, like filling in a ticket */
   .netid { width: 100%; border: 0; border-bottom: 3px solid var(--ink); background: transparent; border-radius: 0;
     font-family: var(--mono); font-weight: 600; font-size: clamp(2.4rem, 7vh, 3.6rem); letter-spacing: .02em; padding: 6px 0 8px; margin-top: 8px; outline: none; }
-  .netid::placeholder { color: #c9c2b6; }
   .netid:focus { border-bottom-color: var(--scarlet); }
+  .netid:focus-visible, .line:focus-visible { outline-offset: 4px; }
+  [aria-invalid="true"] { border-bottom-color: var(--scarlet) !important; }
   .line { width: 100%; border: 0; border-bottom: 2px solid var(--ink); background: transparent; border-radius: 0; font-size: 1.35rem; padding: 6px 0; margin: 4px 0 14px; outline: none; }
   .line:focus { border-bottom-color: var(--scarlet); }
-  .swap { margin-top: 12px; font-size: 1rem; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; align-self: flex-start; padding: 6px 0; }
+  .swap { margin-top: 6px; font-size: 1rem; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; align-self: flex-start; min-height: 44px; padding: 0; }
 
   .more { display: flex; flex-direction: column; padding-top: clamp(20px, 4vh, 40px); }
-  .more textarea { width: 100%; height: 58px; resize: none; transition: height .25s ease; border: 1px solid var(--rule); background: #fbf9f6; border-radius: 4px;
+  .more textarea { width: 100%; height: 58px; resize: none; transition: height .25s ease; border: 1px solid var(--field); background: var(--paper); border-radius: 2px;
     padding: 12px 14px; font-size: 1.15rem; line-height: 1.35; margin-top: 8px; outline: none; }
   .more textarea:focus { border-color: var(--ink); }
   .more.big textarea { height: clamp(120px, 26vh, 230px); }
-  .more.needed textarea { border-color: var(--scarlet); }
+  .more.needed textarea { border-color: var(--scarlet); border-width: 2px; }
   .side { margin-top: auto; }
   .count { font-family: var(--mono); font-size: .8rem; color: var(--scarlet); }
 
+  /* Not ready yet: white with black text. Ready: Rutgers Red with white text. Both 4.5:1 or better. */
   .go { margin-top: 16px; width: 100%; display: flex; align-items: center; justify-content: space-between; padding: clamp(16px, 2.6vh, 22px) 24px;
-    background: #cfc8bd; color: #fff; font-size: 1.4rem; font-weight: 600; border-radius: 4px; transition: background .2s; }
+    background: #fff; color: var(--ink); border: 1px solid var(--field); font-size: 1.4rem; font-weight: 600; border-radius: 2px; transition: background .2s; }
+  .go.ready { color: #fff; border-color: var(--scarlet); }
   .go .icon { width: 28px; height: 28px; transition: transform .2s; }
   .go.ready { background: var(--scarlet); }
   .go.ready:active .icon { transform: translateX(6px); }
@@ -76,23 +92,29 @@
 
   /* Issues: a printed menu rather than a wall of cards */
   .issues { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; flex: 1; min-height: 0; border-top: 1px solid var(--rule); }
-  .issue { display: flex; flex-direction: column; justify-content: center; cursor: pointer; padding: 0 14px; text-align: left; font-size: clamp(1.05rem, 2.5vh, 1.3rem); font-weight: 500;
+  /* Each issue is a real button (keyboard, VoiceOver and Switch Control can reach it). Issues with
+     sub-choices (Wi-Fi) show a row of choice buttons under it once picked. */
+  .issue { display: flex; flex-direction: column; justify-content: center; text-align: left; font-size: clamp(1.05rem, 2.5vh, 1.3rem); font-weight: 500;
     border-bottom: 1px solid var(--rule); min-height: 56px; position: relative; }
+  .issue .pick { flex: 1; width: 100%; display: flex; align-items: center; padding: 0 14px; text-align: left; font-weight: 500; min-height: 56px; }
+  .issue.open .pick { flex: none; min-height: 44px; }
+  .issue .pick:focus-visible, .opt:focus-visible { outline-offset: -4px; }
   .issue:nth-child(odd) { border-right: 1px solid var(--rule); }
   .issue .icon { width: 26px; height: 26px; color: var(--soft); }
   .issue .main { display: flex; align-items: center; gap: 14px; width: 100%; }
   .issue .tick { margin-left: auto; opacity: 0; color: #fff; }
-  .issue .opts { display: none; gap: 8px; margin-top: 10px; }
+  .issue .opts { display: none; gap: 8px; padding: 0 14px 10px; }
   .issue.open .opts { display: flex; }
   .issue.open .tick { display: none; }
-  .opt { flex: 1; padding: 10px 8px; border: 1.5px solid rgba(255,255,255,.55); border-radius: 3px; color: #fff; font-size: 1rem; font-weight: 600; font-style: normal; }
-  .opt[aria-pressed="true"] { background: var(--scarlet); border-color: var(--scarlet); }
-  .issue:active { background: #ebe6de; }
-  .issue[aria-pressed="true"] { background: var(--ink); color: #fff; }
-  .issue[aria-pressed="true"] .icon { color: #fff; }
-  .issue[aria-pressed="true"] .tick { opacity: 1; }
+  .opt { flex: 1; min-height: 44px; padding: 8px; border: 2px solid #fff; border-radius: 2px; color: #fff; font-size: 1rem; font-weight: 600; font-style: normal; }
+  .opt[aria-pressed="true"] { background: #fff; color: var(--ink); }
+  .opt[aria-pressed="true"]::before { content: ""; display: inline-block; width: .55em; height: .55em; border-radius: 50%; background: var(--scarlet); margin-right: .45em; vertical-align: .05em; }
+  .issue:active { background: var(--shade); }
+  .issue.on { background: var(--ink); color: #fff; }
+  .issue.on .icon { color: #fff; }
+  .issue.on .tick { opacity: 1; }
   .issue.other { color: var(--soft); font-style: italic; }
-  .issue.other[aria-pressed="true"] { color: #fff; }
+  .issue.other.on { color: #fff; }
 
   /* Nudge whatever is missing */
   .shake { animation: shake .3s; }
@@ -130,7 +152,7 @@
   .stub .acts { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px;
     margin-top: 26px; padding-top: 18px; border-top: 1px dashed var(--rule); }
   .stub .acts .ask { font-size: 1.1rem; font-weight: 600; margin-right: auto; }
-  .stub .acts button { padding: 14px 22px; border-radius: 4px; font-size: 1.1rem; font-weight: 600; }
+  .stub .acts button { min-height: 44px; padding: 14px 22px; border-radius: 2px; font-size: 1.1rem; font-weight: 600; }
   .stub .acts .plain { padding-left: 0; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; font-weight: 500; }
   /* "Fixed it with the guide?" sits above its button, so it reads as the exception, and Done as the normal way out. */
   .stub .acts .solved { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
@@ -149,7 +171,19 @@
 
   .off { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: var(--paper); }
   .off h1 { font-size: 2rem; margin-bottom: 10px; }
-  .off a { display: inline-block; margin-top: 20px; background: var(--ink); color: #fff; padding: 14px 28px; text-decoration: none; border-radius: 4px; font-weight: 600; }
+  .off a { display: inline-block; margin-top: 20px; background: var(--ink); color: #fff; padding: 14px 28px; text-decoration: none; border-radius: 2px; font-weight: 600; }
+
+  /* "Still there?" before a half-filled form clears itself (WCAG 2.2.1: warn, and let people ask for more time). */
+  .still { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.55); display: grid; place-items: center; padding: 24px; }
+  .still .box { background: #fff; border-top: 4px solid var(--scarlet); padding: 34px 40px; width: min(520px, 90vw); }
+  .still h2 { font-size: 2rem; margin-bottom: 8px; }
+  .still p { font-size: 1.2rem; color: var(--soft); }
+  .still button { margin-top: 24px; background: var(--ink); color: #fff; padding: 16px 26px; font-size: 1.2rem; font-weight: 600; border-radius: 2px; min-height: 44px; }
+
+  /* Reduce motion setting: no shake, slide or grow. The countdown bar stays: it shows time left. */
+  @media (prefers-reduced-motion: reduce) {
+    *:not(.timer > div), *::before, *::after { animation: none !important; transition: none !important; }
+  }
 
   /* Portrait iPad: stack the halves */
   @media (orientation: portrait) {
@@ -167,21 +201,23 @@
 <body>
 <div class="screen" id="formView">
   <header>
-    <div class="word" id="word"><span>Rutgers</span> OIT</div>
-    <div><span class="clock" id="clock"></span></div>
+    <div class="word" id="word"><span id="brand"></span></div>
+    <div><span class="clock" id="clock" aria-hidden="true"></span></div>
   </header>
   <main>
+    <h1 class="sr-only">Check in for OIT help</h1>
     <form class="you" id="f" autocomplete="off" novalidate>
       <div class="who">
         <div id="netidBox">
           <label class="label" for="netid">Your NetID</label>
-          <input class="netid" id="netid" placeholder="abc123" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done">
+          <input class="netid" id="netid" aria-describedby="netidHint" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done">
+          <p class="hint" id="netidHint">Like abc123</p>
         </div>
         <div id="nameBox" class="hidden">
           <label class="label" for="name">Name</label>
-          <input class="line" id="name" autocomplete="off" enterkeyhint="next">
+          <input class="line" id="name" autocomplete="name" enterkeyhint="next">
           <label class="label" for="email">Email</label>
-          <input class="line" id="email" type="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done">
+          <input class="line" id="email" type="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done">
         </div>
         <button type="button" class="swap" id="swap">I don't have a NetID</button>
       </div>
@@ -195,17 +231,17 @@
       </div>
     </form>
     <section class="what" aria-labelledby="whatLabel">
-      <div class="label" id="whatLabel">What do you need help with?</div>
+      <h2 class="label" id="whatLabel">What do you need help with?</h2>
       <div class="issues" id="issues" role="group" aria-labelledby="whatLabel"></div>
     </section>
   </main>
 </div>
 
-<div class="done hidden" id="doneView">
+<div class="done hidden" id="doneView" role="dialog" aria-modal="true" aria-labelledby="stubHead">
   <div class="stub" id="stub">
     <div class="main-stub">
       <div class="no"><span id="stubNo"></span><span id="stubTime"></span></div>
-      <h1 id="stubHead">You're checked in.</h1>
+      <h1 id="stubHead" tabindex="-1">You're checked in.</h1>
       <p><span class="who" id="stubWho"></span>, <span id="stubText"></span></p>
     </div>
     <div class="help hidden" id="help">
@@ -216,6 +252,14 @@
     </div>
     <div class="acts hidden" id="acts"></div>
     <div class="timer" id="timer"><div></div></div>
+  </div>
+</div>
+
+<div class="still hidden" id="stillView" role="alertdialog" aria-modal="true" aria-labelledby="stillHead" aria-describedby="stillText">
+  <div class="box">
+    <h2 id="stillHead">Still there?</h2>
+    <p id="stillText">This form clears in <span id="stillLeft">20</span> seconds so the next person can check in.</p>
+    <button type="button" id="stillBtn">I need more time</button>
   </div>
 </div>
 
@@ -245,9 +289,10 @@ let helpFor = {};  // issue label -> { url, title, qr } for issues with a self-h
 let doneTimer = null;
 
 $('goIcon').replaceWith(icon('arrow-right'));
+$('brand').replaceWith(brandMark());
 $('guideIcon').replaceWith(icon('book-open'));
 
-// Staff exit: press and hold "Rutgers OIT" for 3 seconds. It only opens the staff sign-in;
+// Staff exit: press and hold the logo for 3 seconds. It only opens the staff sign-in;
 // nothing changes on this iPad unless a consultant signs in.
 (() => {
   const w = $('word'); let t = null;
@@ -279,6 +324,12 @@ function update() {
   $('descReq').className = cls;
   $('desc').placeholder = s.needDesc ? 'What do you need help with?' : '';
   $('more').classList.toggle('needed', s.needDesc && tried && !s.desc);
+  // Tell screen readers which fields are wrong once they've tried to check in (WCAG 3.3.1).
+  const bad = (id, v) => { if (tried && v) $(id).setAttribute('aria-invalid', 'true'); else $(id).removeAttribute('aria-invalid'); };
+  bad('netid', usingNetid && !s.who);
+  bad('name', !usingNetid && !$('name').value.trim());
+  bad('email', !usingNetid && !EMAIL_RE.test($('email').value.trim()));
+  bad('desc', s.needDesc && !s.desc);
   $('go').classList.toggle('ready', s.who && !!selected && s.desc && s.subOk);
   $('msg').textContent = '';
 }
@@ -307,20 +358,28 @@ function nudge(id, text) {
 
 // Clear every issue selection (and close any sub-choice row).
 function clearIssues() {
-  document.querySelectorAll('.issue').forEach((b) => { b.setAttribute('aria-pressed', 'false'); b.classList.remove('open'); });
+  document.querySelectorAll('.issue').forEach((c) => c.classList.remove('on', 'open'));
+  document.querySelectorAll('.pick').forEach((b) => { b.setAttribute('aria-pressed', 'false'); if (b.hasAttribute('aria-expanded')) b.setAttribute('aria-expanded', 'false'); });
   document.querySelectorAll('.opt').forEach((b) => b.setAttribute('aria-pressed', 'false'));
   selected = null; sub = null; subOptions = [];
+}
+// Close the on-screen keyboard when someone taps a button, but leave keyboard focus alone.
+function closeKeyboard() {
+  const a = document.activeElement;
+  if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) a.blur();
 }
 
 function issueButton(label, value, iconName, extra, options) {
   options = options || [];
-  const cell = el('div', { class: 'issue ' + (extra || ''), 'aria-pressed': 'false', role: 'button', tabindex: '0' });
-  const main = el('span', { class: 'main' }, icon(iconName), el('span', {}, label), icon('check', 'tick'));
-  cell.append(main);
+  const cell = el('div', { class: 'issue ' + (extra || '') });
+  const pick = el('button', { type: 'button', class: 'pick', 'aria-pressed': 'false' },
+    el('span', { class: 'main' }, icon(iconName), el('span', {}, label), icon('check', 'tick')));
+  cell.append(pick);
   if (options.length) {
     // Buttons with sub-choices (e.g. Wi-Fi) open into a row of choices once tapped.
     cell.classList.add('has-opts');
-    cell.append(el('span', { class: 'opts' }, options.map((o) => el('button', {
+    pick.setAttribute('aria-expanded', 'false');
+    cell.append(el('span', { class: 'opts', role: 'group', 'aria-label': `Which ${label}?` }, options.map((o) => el('button', {
       type: 'button', class: 'opt', 'aria-pressed': 'false',
       onclick: (e) => {
         e.stopPropagation();
@@ -331,17 +390,21 @@ function issueButton(label, value, iconName, extra, options) {
       },
     }, o))));
   }
-  cell.addEventListener('click', () => {
-    const on = cell.getAttribute('aria-pressed') !== 'true';
-    if (!on && options.length) return; // tapping an open Wi-Fi cell outside a choice does nothing
+  pick.addEventListener('click', (e) => {
+    const on = pick.getAttribute('aria-pressed') !== 'true';
+    if (!on && options.length) return; // tapping an open Wi-Fi button again does nothing; pick a choice below it
     clearIssues();
     if (on) {
-      cell.setAttribute('aria-pressed', 'true');
+      pick.setAttribute('aria-pressed', 'true');
+      cell.classList.add('on');
       cell.classList.toggle('open', options.length > 0);
+      if (options.length) pick.setAttribute('aria-expanded', 'true');
       selected = value; subOptions = options;
     }
-    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    closeKeyboard();
     update();
+    // From a keyboard (no pointer), move straight to the first sub-choice.
+    if (on && options.length && e.detail === 0) cell.querySelector('.opt').focus();
     if (on && value === OTHER) setTimeout(() => $('desc').focus(), 260);
   });
   return cell;
@@ -355,8 +418,31 @@ function reset() {
   setMode(true);
 }
 
-function poke() { clearTimeout(idleTimer); idleTimer = setTimeout(reset, IDLE_MS); }
-['input', 'click', 'touchstart'].forEach((ev) => document.addEventListener(ev, poke, { passive: true }));
+// After 90 seconds untouched, a half-filled form asks "Still there?" and clears 20 seconds later
+// unless someone taps. An empty form just resets quietly, since nothing is lost.
+const STILL_S = 20;
+let stillTimer = null;
+const isBusy = () => !!selected || ['netid', 'name', 'email', 'desc'].some((id) => $(id).value);
+function hideStill() { clearInterval(stillTimer); $('stillView').classList.add('hidden'); $('formView').inert = false; }
+function idleCheck() {
+  if (!$('doneView').classList.contains('hidden')) return;
+  if (!isBusy()) return reset();
+  let left = STILL_S;
+  $('stillLeft').textContent = left;
+  $('stillView').classList.remove('hidden');
+  $('formView').inert = true;
+  $('stillBtn').focus();
+  stillTimer = setInterval(() => {
+    left -= 1;
+    if (left <= 0) { hideStill(); reset(); } else if (left % 5 === 0) $('stillLeft').textContent = left;
+  }, 1000);
+}
+function poke() {
+  if (!$('stillView').classList.contains('hidden')) hideStill();
+  clearTimeout(idleTimer); idleTimer = setTimeout(idleCheck, IDLE_MS);
+}
+['input', 'click', 'touchstart', 'keydown'].forEach((ev) => document.addEventListener(ev, poke, { passive: true }));
+$('stillBtn').onclick = () => { hideStill(); poke(); };
 
 const showOff = () => { $('formView').classList.add('hidden'); $('offView').classList.remove('hidden'); };
 
@@ -420,11 +506,19 @@ function showDone(id, help) {
     $('helpTitle').textContent = help.title || 'Fix it step by step';
     askActs(id);
   }
+  $('formView').inert = true; // keep Tab and VoiceOver inside the confirmation
   $('doneView').classList.remove('hidden');
+  $('stubHead').focus();
   startTimer(help ? HELP_MS : DONE_MS);
 }
 
+// Touching the confirmation (outside its buttons) restarts its countdown, so anyone who needs
+// longer to read it gets it (WCAG 2.2.1).
+let doneMs = DONE_MS;
+$('doneView').addEventListener('pointerdown', (e) => { if (!e.target.closest('button')) startTimer(doneMs); });
+
 function startTimer(ms) {
+  doneMs = ms;
   const t = $('timer'); t.classList.remove('run'); t.firstElementChild.style.transitionDuration = ms + 'ms';
   void t.offsetWidth; t.classList.add('run');
   clearTimeout(doneTimer);
@@ -434,26 +528,30 @@ function startTimer(ms) {
 function closeDone() {
   clearTimeout(doneTimer);
   reset();
+  $('formView').inert = false;
   $('doneView').classList.add('hidden');
 }
 
 function askActs(id) {
   $('acts').replaceChildren(
     el('div', { class: 'solved' }, el('span', { class: 'q' }, 'Already fixed it with the guide?'),
-      el('button', { type: 'button', class: 'plain', onclick: () => confirmSolved(id) }, 'Take me out of line')),
+      el('button', { type: 'button', class: 'plain', onclick: () => { confirmSolved(id); focusActs(); } }, 'Take me out of line')),
     el('button', { type: 'button', class: 'ink', onclick: closeDone }, 'Done'));
 }
+// After swapping the buttons, keep keyboard focus inside the confirmation.
+const focusActs = () => { const b = $('acts').querySelector('button'); if (b && document.activeElement === document.body) b.focus(); };
 
 function confirmSolved(id) {
   $('acts').replaceChildren(
     el('span', { class: 'ask' }, 'Leave the line?'),
-    el('button', { type: 'button', class: 'line-btn', onclick: () => askActs(id) }, 'No, keep my spot'),
+    el('button', { type: 'button', class: 'line-btn', onclick: () => { askActs(id); focusActs(); } }, 'No, keep my spot'),
     el('button', { type: 'button', class: 'ink', onclick: async () => {
       try {
         await api(`/api/kiosk/walkins/${id}/self-solved`, {});
         $('stubHead').textContent = "Glad that worked.";
         $('stubText').textContent = "you're out of the line. Come back any time.";
         $('help').classList.add('hidden'); $('acts').classList.add('hidden'); $('stub').classList.remove('wide');
+        $('stubHead').focus();
         startTimer(4000);
       } catch (x) {
         $('acts').replaceChildren(el('span', { class: 'ask' }, x.message), el('button', { type: 'button', class: 'ink', onclick: closeDone }, 'Done'));
@@ -464,8 +562,7 @@ function confirmSolved(id) {
 load();
 // Every 10 min pick up new issue buttons (and notice if the iPad was unlinked), but never mid-entry.
 setInterval(() => {
-  const busy = selected || ['netid', 'name', 'email', 'desc'].some((id) => $(id).value);
-  if (!busy) load();
+  if (!isBusy()) load();
 }, 10 * 60 * 1000);
 </script>
 </body>

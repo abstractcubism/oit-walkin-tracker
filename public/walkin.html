@@ -12,7 +12,7 @@
   .netid { font-family: var(--mono); font-size: 1.8rem; font-weight: 600; }
   .back { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-weight: 600; margin-bottom: 14px; }
   .sn { display: inline-block; margin-top: 10px; font-weight: 600; }
-  .notice { background: var(--warn-tint); color: var(--warn); font-weight: 600; }
+  .notice { background: var(--warn-tint); color: var(--warn); font-weight: 600; border-left: 4px solid var(--yellow); }
   .ticket input { font-size: 1.2rem; width: 220px; text-transform: uppercase; }
   .grid { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; align-items: start; }
   @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } dl { grid-template-columns: 110px 1fr; } }
@@ -20,7 +20,7 @@
 </head>
 <body>
 <main>
-  <a class="back" href="/dashboard">← Back to queue</a>
+  <a class="back" href="/dashboard"><span aria-hidden="true">←</span> Back to queue</a>
   <div id="app"></div>
 </main>
 <script src="/common.js"></script>
@@ -32,6 +32,9 @@ async function act(action, body = {}) {
   try {
     const w = await api(`/api/walkins/${id}/${action}`, body);
     render(w);
+    // The button that was pressed is gone after a redraw; move focus to the heading, which now
+    // shows the new status, instead of dropping it to the top of the page (WCAG 2.4.3).
+    if (!document.activeElement || document.activeElement === document.body) document.getElementById('wh').focus();
     return true;
   } catch (e) {
     toast(e.message);
@@ -40,8 +43,8 @@ async function act(action, body = {}) {
   }
 }
 
-function copyBtn(text) {
-  return el('button', { class: 'small', onclick: async () => {
+function copyBtn(text, what) {
+  return el('button', { class: 'small', 'aria-label': 'Copy ' + what, onclick: async () => {
     try { await navigator.clipboard.writeText(text); toast('Copied'); } catch { toast('Copy failed'); }
   } }, 'Copy');
 }
@@ -51,8 +54,8 @@ function render(w) {
   const open = w.status === 'waiting' || w.status === 'claimed';
   const mine = w.claimed_by === me.email;
 
-  const ticket = el('input', { id: 'ticket', value: w.ticket || '', placeholder: 'INC0012345', 'aria-label': 'ServiceNow ticket number', autocomplete: 'off' });
-  const notes = el('textarea', { rows: 4, placeholder: 'Internal notes (optional)', 'aria-label': 'Notes' }, w.notes || '');
+  const ticket = el('input', { id: 'ticket', value: w.ticket || '', placeholder: 'INC0012345', autocomplete: 'off' });
+  const notes = el('textarea', { id: 'notes', rows: 4, placeholder: 'Internal notes (optional)' }, w.notes || '');
   const saveTicket = async () => {
     if ((ticket.value.trim().toUpperCase() || null) === (w.ticket || null)) return true;
     const ok = await act('update', { ticket: ticket.value });
@@ -72,15 +75,15 @@ function render(w) {
 
   document.getElementById('app').replaceChildren(...[
     el('div', { class: 'page-h' },
-      el('h1', { class: 'row' }, `Walk-in #${w.id}`, chip(w.status)),
+      el('h1', { class: 'row', id: 'wh', tabindex: '-1' }, `Walk-in #${w.id}`, chip(w.status)),
       el('div', { class: 'row' }, actions)),
-    w.status === 'claimed' && !mine ? el('p', { class: 'card notice' }, `Claimed by ${w.claimed_by_name || w.claimed_by}.`) : null,
+    w.status === 'claimed' && !mine ? el('p', { class: 'card notice', role: 'note' }, `Claimed by ${w.claimed_by_name || w.claimed_by}.`) : null,
     el('div', { class: 'grid' },
       el('div', { class: 'card' },
         el('dl', {},
-          w.netid ? [el('dt', {}, 'NetID'), el('dd', {}, el('span', { class: 'netid' }, w.netid), ' ', copyBtn(w.netid))] : null,
+          w.netid ? [el('dt', {}, 'NetID'), el('dd', {}, el('span', { class: 'netid' }, w.netid), ' ', copyBtn(w.netid, 'NetID'))] : null,
           w.name ? [el('dt', {}, 'Name'), el('dd', {}, w.name)] : null,
-          w.email ? [el('dt', {}, 'Email'), el('dd', {}, el('a', { href: 'mailto:' + w.email }, w.email), ' ', copyBtn(w.email))] : null,
+          w.email ? [el('dt', {}, 'Email'), el('dd', {}, el('a', { href: 'mailto:' + w.email }, w.email), ' ', copyBtn(w.email, 'email'))] : null,
           w.purged_at ? [el('dt', {}, 'Details'), el('dd', { class: 'muted' }, 'Personal details were erased by the retention rule.')] : null,
           el('dt', {}, 'Issue'), el('dd', {}, w.issue_type || el('span', { class: 'muted' }, 'Not picked')),
           el('dt', {}, 'Description'), el('dd', { style: 'white-space:pre-wrap' }, w.description || el('span', { class: 'muted' }, 'None')),
@@ -91,10 +94,10 @@ function render(w) {
       el('div', { class: 'card' },
         el('form', { class: 'ticket', onsubmit: (e) => { e.preventDefault(); saveTicket(); } },
           el('label', { for: 'ticket' }, 'ServiceNow ticket'),
-          el('div', { class: 'row' }, ticket, el('button', { type: 'submit' }, 'Save'), w.ticket ? copyBtn(w.ticket) : null),
-          w.ticket ? el('a', { class: 'sn', href: servicenowLink(me.servicenowUrl, w.ticket), target: '_blank', rel: 'noopener' }, `Open ${w.ticket} in ServiceNow ↗`) : null),
+          el('div', { class: 'row' }, ticket, el('button', { type: 'submit' }, 'Save ticket'), w.ticket ? copyBtn(w.ticket, 'ticket number') : null),
+          w.ticket ? el('a', { class: 'sn', href: servicenowLink(me.servicenowUrl, w.ticket), target: '_blank', rel: 'noopener' }, `Open ${w.ticket} in ServiceNow`, el('span', { 'aria-hidden': 'true' }, ' ↗'), el('span', { class: 'sr-only' }, ' (opens in a new tab)')) : null),
         el('div', { style: 'margin-top:16px' },
-          el('label', {}, 'Notes'), notes,
+          el('label', { for: 'notes' }, 'Notes'), notes,
           el('button', { style: 'margin-top:8px', onclick: async () => { if (await act('update', { notes: notes.value })) toast('Notes saved'); } }, 'Save notes'))))].filter(Boolean));
 }
 

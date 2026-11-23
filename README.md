@@ -150,14 +150,24 @@ Every walk-in can be copied to a tab in a Google Sheet, so other OIT tools (like
 
 5. **Backups:** everything lives in `data/walkins.db`. Back it up with `sqlite3 data/walkins.db ".backup backup.db"` (safe while the app is running).
 
+## Rutgers branding and accessibility
+
+Every screen follows the [Rutgers Visual Identity System](https://communications.rutgers.edu/identity) and WCAG 2.1 AA.
+
+- **Logo:** the official OIT signature (Rutgers R + "Rutgers University, Office of Information Technology") is `public/brand/rutgers-logo.svg`, unedited (see `public/brand/README.md`). The app never draws its own version.
+- **Colors:** the identity system palette (Rutgers Red `#CC0033`, black, white, and the supporting grays, teal, blue and yellow) on a cream page (`#F4F1EC`, allowed as a background), all defined in `public/app.css`. Every text color passes 4.5:1 contrast.
+- **Type:** IBM Plex Sans and Mono. The guide only requires FF Meta Pro inside official signatures, which come as finished files.
+- **Accessibility:** works with a keyboard, VoiceOver and Switch Control, shows a blue focus ring, never uses color alone for meaning, and turns off animation when the device asks for reduced motion (iPad: Settings › Accessibility › Motion › Reduce Motion).
+
 ## Setting up an iPad
 
 1. Open `BASE_URL/setup` in Safari and sign in.
 2. Tap the location. The iPad switches to the check-in form and signs you out.
 3. Turn on **Guided Access** (Settings › Accessibility › Guided Access) and start it on the form, so walk-ins can't leave the page.
-4. To get back to the staff screen, **press and hold "Rutgers OIT" in the top-left corner for 3 seconds**. That opens the consultant sign-in, which has a "Back to check-in" button and goes back to the form on its own after a minute. Nothing changes on the iPad until a consultant signs in. You can also unlink an iPad from the Admin page.
+4. In Settings › Safari, turn **AutoFill** off, so the form never suggests a previous person's name or email.
+5. To get back to the staff screen, **press and hold the Rutgers logo in the top-left corner for 3 seconds**. That opens the consultant sign-in, which has a "Back to check-in" button and goes back to the form on its own after a minute. Nothing changes on the iPad until a consultant signs in. You can also unlink an iPad from the Admin page.
 
-The form clears itself 6 seconds after each check-in, and any half-filled form is cleared after 90 seconds of no activity.
+The form clears itself 6 seconds after each check-in, and a half-filled form left alone for 90 seconds asks "Still there?" and clears 20 seconds later unless someone taps.
 
 If you use *Add to Home Screen*, set the iPad up from the home-screen app itself, because it keeps separate cookies from Safari.
 
@@ -167,6 +177,6 @@ The TV shows the walk-ins waiting at one location, oldest first, plus the number
 
 1. On the computer or streaming stick driving the TV, open `BASE_URL/setup` in a browser (full screen / kiosk mode) and sign in.
 2. Choose **TV queue screen**, then the location. The browser switches to the queue and signs you out. It keeps a token that can only read that location's queue.
-3. To get back to the staff screen, press and hold "Rutgers OIT" for 3 seconds, or open `/setup`. You can unlink a TV from the Admin page.
+3. To get back to the staff screen, press and hold the Rutgers logo for 3 seconds, or open `/setup`. You can unlink a TV from the Admin page.
 
 **What it shows:** each waiting walk-in's NetID (or first name and last initial if they checked in without one), their issue with a short bit of the description, and when they checked in. Emails are never shown. When a consultant claims someone, their row lights up red at the top of the list with the consultant's first name for 2 minutes while the consultant comes to find them, then moves to "With a consultant" (`jd4521 with Alex`). A small "helped today" count for supervisors sits next to the clock, and rotating tips run along the bottom (edit the `TIPS` list in `public/tv.html`).
