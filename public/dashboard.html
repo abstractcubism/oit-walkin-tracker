@@ -116,7 +116,7 @@ function openItem(w) {
     el('div', { class: 'acts' },
       w.status === 'waiting'
         ? el('button', { class: 'primary', 'data-focus': 'claim' + w.id, 'aria-label': `Claim ${who(w)}`, onclick: () => act(w, 'claim') }, 'Claim')
-        : el('span', { class: 'claimed-by' }, w.claimed_by === me.email ? 'Yours' : 'Claimed by ' + (w.claimed_by_name || w.claimed_by).split(/[ @]/)[0]),
+        : w.claimed_by === me.email ? null : el('span', { class: 'claimed-by' }, 'Claimed by ' + (w.claimed_by_name || w.claimed_by).split(/[ @]/)[0]),
       el('a', { class: 'btn', 'data-focus': 'open' + w.id, 'aria-label': `Open ${who(w)}`, href: `/w/${w.id}` }, 'Open')));
 }
 
