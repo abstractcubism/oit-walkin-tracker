@@ -137,6 +137,12 @@ test('full walk-in flow', async () => {
   assert.equal(rep.totals.resolved, 1);
   const csv = await alice('GET', '/api/reports/export.csv');
   assert.match(csv.body, /INC0012345/);
+  // Reports narrow to one location; "all" (or nothing) covers every location.
+  const other = locs.find((l) => l.id !== arc.id);
+  assert.equal((await alice('GET', `/api/reports?location=${arc.id}`)).body.totals.total, 2);
+  assert.equal((await alice('GET', `/api/reports?location=${other.id}`)).body.totals.total, 0);
+  assert.equal((await alice('GET', '/api/reports?location=all')).body.totals.total, 2);
+  assert.doesNotMatch((await alice('GET', `/api/reports/export.csv?location=${other.id}`)).body, /INC0012345/);
 
   // Writes must be JSON (CSRF guard).
   const form = await fetch(`${base}/api/walkins/${w2}/claim`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'x=1' });

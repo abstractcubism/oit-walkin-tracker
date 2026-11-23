@@ -370,17 +370,26 @@ function range(req) {
 
 const MINUTES = (a, b) => `ROUND(AVG((julianday(${b}) - julianday(${a})) * 1440), 1)`;
 
+// ?location=<id> narrows a report to one location; no value (or "all") means every location.
+function reportLocation(req) {
+  const id = Number(req.query.location);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
 app.get('/api/reports', auth.requireUser, (req, res) => {
   const [from, to] = range(req);
-  const base = 'FROM walkins w JOIN locations l ON l.id = w.location_id WHERE w.created_at >= ? AND w.created_at < ?';
-  const q = (sql) => db.prepare(sql).all(from, to);
+  const loc = reportLocation(req);
+  const params = loc ? [from, to, loc] : [from, to];
+  const base = 'FROM walkins w JOIN locations l ON l.id = w.location_id WHERE w.created_at >= ? AND w.created_at < ?'
+    + (loc ? ' AND w.location_id = ?' : '');
+  const q = (sql) => db.prepare(sql).all(...params);
   res.json({
-    from, to,
+    from, to, location: loc,
     totals: db.prepare(`SELECT COUNT(*) AS total,
         SUM(status='resolved') AS resolved, SUM(status='left' AND close_reason IS NULL) AS left_count,
         SUM(close_reason='self_solved') AS self_solved, SUM(status IN ('waiting','claimed')) AS open,
         ${MINUTES('w.created_at', 'w.claimed_at')} AS avg_wait_min,
-        ${MINUTES('w.claimed_at', 'w.closed_at')} AS avg_handle_min ${base}`).get(from, to),
+        ${MINUTES('w.claimed_at', 'w.closed_at')} AS avg_handle_min ${base}`).get(...params),
     byLocation: q(`SELECT l.name AS label, COUNT(*) AS n, ${MINUTES('w.created_at', 'w.claimed_at')} AS avg_wait_min ${base} GROUP BY l.name ORDER BY n DESC`),
     byIssue: q(`SELECT COALESCE(w.issue_type, 'Something else') AS label, COUNT(*) AS n, SUM(w.close_reason='self_solved') AS self_solved
                 ${base} GROUP BY label ORDER BY n DESC`),
@@ -398,7 +407,10 @@ const csvCell = (v) => {
 
 app.get('/api/reports/export.csv', auth.requireUser, (req, res) => {
   const [from, to] = range(req);
-  const rows = db.prepare(`${WALKIN_SELECT} WHERE w.created_at >= ? AND w.created_at < ? ORDER BY w.created_at`).all(from, to);
+  const loc = reportLocation(req);
+  const rows = loc
+    ? db.prepare(`${WALKIN_SELECT} WHERE w.created_at >= ? AND w.created_at < ? AND w.location_id = ? ORDER BY w.created_at`).all(from, to, loc)
+    : db.prepare(`${WALKIN_SELECT} WHERE w.created_at >= ? AND w.created_at < ? ORDER BY w.created_at`).all(from, to);
   const cols = ['id', 'created_at', 'location', 'netid', 'name', 'email', 'issue_type', 'description', 'status',
     'claimed_by', 'claimed_at', 'ticket', 'closed_at', 'closed_by', 'close_reason', 'notes',
     'consent', 'consent_name', 'consent_at', 'consent_by'];
